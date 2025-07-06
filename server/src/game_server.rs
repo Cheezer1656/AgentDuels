@@ -1,5 +1,6 @@
 use std::net::ToSocketAddrs;
 
+use agentduels_protocol::{packets::MatchIDPacket, PacketCodec};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{
@@ -18,18 +19,34 @@ impl GameServer {
     pub async fn listen<T: ToSocketAddrs>(&mut self, addr: T) -> anyhow::Result<()> {
         let listener = TcpListener::bind(addr.to_socket_addrs().unwrap().next().unwrap()).await?;
 
+        let codec = PacketCodec::default();
         loop {
             let (socket, _) = listener.accept().await.unwrap();
             let (tx, rx) = mpsc::channel(10);
             if let Some((queue_socket, queue_tx, queue_rx)) = self.queue.take() {
-                let (read, write) = socket.into_split();
+                let packet = MatchIDPacket {
+                    id: rand::random()
+                };
+
+                let (read, mut write) = socket.into_split();
+                if let Err(_) = write.write_all(&codec.write(&packet)?).await {
+                    drop(read);
+                    drop(write);
+                    continue;
+                };
                 tokio::spawn(async move {
                     GameServer::handle_receiving(read, queue_tx).await;
                 });
                 tokio::spawn(async move {
                     GameServer::handle_sending(write, rx).await;
                 });
-                let (read, write) = queue_socket.into_split();
+
+                let (read, mut write) = queue_socket.into_split();
+                if let Err(_) = write.write_all(&codec.write(&packet)?).await {
+                    drop(read);
+                    drop(write);
+                    continue;
+                };
                 tokio::spawn(async move {
                     GameServer::handle_receiving(read, tx).await;
                 });

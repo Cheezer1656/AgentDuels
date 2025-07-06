@@ -1,4 +1,4 @@
-use agentduels_protocol::{PacketCodec, packets::HandshakePacket};
+use agentduels_protocol::{packets::{HandshakePacket, MatchIDPacket}, PacketCodec};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -10,7 +10,13 @@ async fn main() {
         .await
         .expect("Failed to connect to game server");
 
-    let mut codec = PacketCodec::default();
+    let codec = PacketCodec::default();
+
+    let mut buf = [0; 64];
+    socket.read(buf.as_mut_slice()).await.unwrap();
+    let packet: MatchIDPacket = codec.read(&buf).unwrap();
+
+    println!("Match ID: {}", packet.id);
 
     let packet = HandshakePacket {
         protocol_version: 1,

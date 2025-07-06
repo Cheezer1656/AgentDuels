@@ -16,7 +16,7 @@ pub struct PacketCodec {
 }
 
 impl PacketCodec {
-    pub fn write<P: Packet>(&mut self, packet: &P) -> anyhow::Result<Vec<u8>> {
+    pub fn write<P: Packet>(&self, packet: &P) -> anyhow::Result<Vec<u8>> {
         let serialized = postcard::to_allocvec(packet)?;
         let mut buf = Vec::with_capacity(serialized.len() + 1);
         buf.push(P::ID);
@@ -31,7 +31,7 @@ impl PacketCodec {
         Ok(buf)
     }
 
-    pub fn read<P: Packet>(&mut self, data: &[u8]) -> anyhow::Result<P> {
+    pub fn read<P: Packet>(&self, data: &[u8]) -> anyhow::Result<P> {
         let buf = if let Some(cipher) = &self.cipher {
             let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
             cipher
