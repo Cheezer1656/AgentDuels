@@ -17,25 +17,29 @@ pub struct PacketCodec {
 
 impl PacketCodec {
     pub fn write<P: Packet>(&self, packet: &P) -> anyhow::Result<Vec<u8>> {
-        let serialized = postcard::to_allocvec(packet)?;
-        let mut buf = Vec::with_capacity(serialized.len() + 1);
+        let mut buf = Vec::with_capacity(1);
         buf.push(P::ID);
+        buf = postcard::to_extend(packet, buf)?;
         if let Some(cipher) = &self.cipher {
             let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-            buf = cipher
-                .encrypt(&nonce, serialized.as_slice())
-                .map_err(|_| anyhow::anyhow!("Encryption failed"))?;
-        } else {
-            buf.extend(serialized);
+            let mut new_buf = nonce.to_vec();
+            new_buf.extend(
+                cipher
+                    .encrypt(&nonce, buf.as_slice())
+                    .map_err(|_| anyhow::anyhow!("Encryption failed"))?,
+            );
+            buf = new_buf;
         }
         Ok(buf)
     }
 
     pub fn read<P: Packet>(&self, data: &[u8]) -> anyhow::Result<P> {
         let buf = if let Some(cipher) = &self.cipher {
-            let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+            let nonce = data
+                .get(0..12)
+                .ok_or_else(|| anyhow::anyhow!("Data too short for nonce"))?;
             cipher
-                .decrypt(&nonce, data)
+                .decrypt(nonce.into(), &data[12..])
                 .map_err(|_| anyhow::anyhow!("Decryption failed"))?
         } else {
             data.to_vec()
@@ -69,14 +73,31 @@ mod tests {
     }
 
     #[test]
-    fn test_packet_serialize_deserialize() {
+    fn test_packet_codec() {
         let packet = TestPacket {
             num: 42,
             data: "Hello, World!".to_string(),
         };
 
-        let serialized = postcard::to_allocvec(&packet).unwrap();
-        let deserialized: TestPacket = postcard::from_bytes(&serialized).unwrap();
+        let codec = PacketCodec::default();
+        let serialized = codec.write(&packet).unwrap();
+        let deserialized: TestPacket = codec.read(&serialized).unwrap();
+
+        assert_eq!(packet.num, deserialized.num);
+        assert_eq!(packet.data, deserialized.data);
+    }
+
+    #[test]
+    fn test_packet_codec_encrypted() {
+        let packet = TestPacket {
+            num: 42,
+            data: "Hello, World!".to_string(),
+        };
+
+        let mut codec = PacketCodec::default();
+        codec.enable_encryption(&[42; 32]).unwrap();
+        let serialized = codec.write(&packet).unwrap();
+        let deserialized: TestPacket = codec.read(&serialized).unwrap();
 
         assert_eq!(packet.num, deserialized.num);
         assert_eq!(packet.data, deserialized.data);
