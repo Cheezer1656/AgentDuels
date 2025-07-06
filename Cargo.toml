@@ -6,10 +6,12 @@ edition = "2024"
 [dependencies]
 agentduels_protocol.workspace = true
 anyhow.workspace = true
+bevy = "0.16.1"
 postcard.workspace = true
 tokio.workspace = true
 
 [workspace]
+resolver = "2"
 members = ["protocol", "protocol/macros" , "server"]
 
 [workspace.package]
@@ -23,3 +25,18 @@ postcard = { version = "1.1.2", features = ["alloc"], default-features = false }
 rand = "0.9.1"
 serde = { version = "1.0.219", features = ["derive"] }
 tokio = { version = "1.46.1", features = ["full"] }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+strip = "debuginfo"
