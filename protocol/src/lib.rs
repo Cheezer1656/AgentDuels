@@ -48,7 +48,10 @@ impl PacketCodec {
     }
 
     pub fn enable_encryption(&mut self, key: &[u8; 32]) -> anyhow::Result<()> {
-        self.cipher = Some(Aes256Gcm::new_from_slice(key).map_err(|_| anyhow::anyhow!("Invalid encryption key"))?);
+        self.cipher = Some(
+            Aes256Gcm::new_from_slice(key)
+                .map_err(|_| anyhow::anyhow!("Invalid encryption key"))?,
+        );
         Ok(())
     }
 }
