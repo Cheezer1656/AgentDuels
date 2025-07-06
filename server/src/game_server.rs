@@ -27,14 +27,14 @@ impl GameServer {
                     GameServer::handle_receiving(read, queue_tx).await;
                 });
                 tokio::spawn(async move {
-                    GameServer::handle_sending(write, queue_rx).await;
+                    GameServer::handle_sending(write, rx).await;
                 });
                 let (read, write) = queue_socket.into_split();
                 tokio::spawn(async move {
                     GameServer::handle_receiving(read, tx).await;
                 });
                 tokio::spawn(async move {
-                    GameServer::handle_sending(write, rx).await;
+                    GameServer::handle_sending(write, queue_rx).await;
                 });
             } else {
                 self.queue = Some((socket, tx, rx));
