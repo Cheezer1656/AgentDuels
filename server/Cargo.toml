@@ -1,0 +1,11 @@
+[package]
+name = "agentduels_server"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+actix-web = "4.11.0"
+anyhow.workspace = true
+dashmap = "6.1.0"
+serde.workspace = true
+tokio = { workspace = true, features = ["full"] }

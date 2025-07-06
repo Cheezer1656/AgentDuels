@@ -1,0 +1,9 @@
+[package]
+name = "agentduels_protocol"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+agentduels_protocol_macros = { version = "0.1.0", path = "macros" }
+postcard = { version = "1.1.2", features = ["alloc"], default-features = false }
+serde.workspace = true
