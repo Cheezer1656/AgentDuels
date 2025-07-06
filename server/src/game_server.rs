@@ -3,7 +3,8 @@ use std::net::ToSocketAddrs;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{
-        tcp::{OwnedReadHalf, OwnedWriteHalf}, TcpListener, TcpStream
+        TcpListener, TcpStream,
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
     },
     sync::mpsc,
 };
@@ -43,13 +44,15 @@ impl GameServer {
 
     pub async fn handle_receiving(mut socket: OwnedReadHalf, tx: mpsc::Sender<Vec<u8>>) {
         loop {
-            let mut bytes = Vec::new();
-            match socket.read(bytes.as_mut_slice()).await {
+            let mut buf = [0; 64];
+            match socket.read(&mut buf).await {
                 Ok(n) => {
                     if n == 0 {
                         break;
                     }
-                    let _ = tx.send(bytes);
+                    if let Err(_) = tx.send(buf.to_vec()).await {
+                        break;
+                    }
                 }
                 Err(_) => break,
             }
@@ -58,10 +61,8 @@ impl GameServer {
 
     pub async fn handle_sending(mut socket: OwnedWriteHalf, mut rx: mpsc::Receiver<Vec<u8>>) {
         loop {
-            if let Ok(bytes) = rx.try_recv() {
-                let _ = socket.write_all(bytes.as_slice());
-            } else {
-                break;
+            if let Some(bytes) = rx.recv().await {
+                let _ = socket.write_all(bytes.as_slice()).await;
             }
         }
     }
