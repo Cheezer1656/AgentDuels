@@ -1,27 +1,25 @@
-use std::net::SocketAddr;
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
+use bevy::ecs::component::Component;
+use std::{io::{Read, Write}, net::{SocketAddr, TcpStream}};
 
 use agentduels_protocol::{
     PacketCodec,
     packets::{HandshakePacket, MatchIDPacket},
 };
-use tokio::net::TcpStream;
 
+#[derive(Component)]
 pub struct GameClient {
     socket: TcpStream,
 }
 
 impl GameClient {
-    pub async fn connect(addr: SocketAddr) -> anyhow::Result<Self> {
-        let mut socket = TcpStream::connect(addr)
-            .await
-            .expect("Failed to connect to game server");
+    pub fn connect(addr: SocketAddr) -> anyhow::Result<Self> {
+        let mut socket = TcpStream::connect(addr).expect("Failed to connect to game server");
 
         let codec = PacketCodec::default();
 
-        let mut buf = [0; 64];
-        socket.read(buf.as_mut_slice()).await.unwrap();
+        let mut buf = [0; 8];
+        socket.read(buf.as_mut_slice()).unwrap();
+        println!("Read {:?} bytes", &buf);
         let packet: MatchIDPacket = codec.read(&buf).unwrap();
 
         println!("Match ID: {}", packet.id);
@@ -31,11 +29,11 @@ impl GameClient {
         };
         socket
             .write_all(&codec.write(&packet).unwrap())
-            .await
+
             .unwrap();
 
-        let mut buf = [0; 64];
-        socket.read(buf.as_mut_slice()).await.unwrap();
+        let mut buf = [0; 8];
+        socket.read(buf.as_mut_slice()).unwrap();
         let packet: HandshakePacket = codec.read(&buf).unwrap();
 
         println!(
