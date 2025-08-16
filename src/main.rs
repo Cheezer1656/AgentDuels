@@ -23,6 +23,10 @@ struct AutoDespawn(AppState);
 async fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .insert_resource(AmbientLight {
+            brightness: 400.0,
+            ..default()
+        })
         .insert_state(AppState::MainMenu)
         .add_plugins((MainMenuPlugin, JoiningPlugin, GamePlugin))
         .add_systems(Startup, create_listener)
