@@ -22,7 +22,7 @@ struct AutoDespawn(AppState);
 #[tokio::main]
 async fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .insert_state(AppState::MainMenu)
         .add_plugins((MainMenuPlugin, JoiningPlugin, GamePlugin))
         .add_systems(Startup, create_listener)
