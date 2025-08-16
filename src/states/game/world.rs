@@ -281,6 +281,8 @@ fn setup(
     commands.insert_resource(WorldPluginData {
         atlas_material: materials.add(StandardMaterial {
             base_color_texture: Some(asset_server.load("textures/atlas.png")),
+            reflectance: 0.0,
+            perceptual_roughness: 1.0,
             ..default()
         }),
     });
