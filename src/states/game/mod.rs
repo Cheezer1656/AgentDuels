@@ -18,10 +18,10 @@ impl Plugin for GamePlugin {
         app.add_plugins(WorldPlugin)
             .add_systems(
                 OnEnter(AppState::Game),
-                (replace_camera, setup, cursor_grab),
+                (replace_camera, set_bg, setup, cursor_grab),
             )
             .add_systems(OnExit(AppState::Game), cursor_ungrab)
-            .add_systems(Update, (move_cam));
+            .add_systems(Update, move_cam);
     }
 }
 
@@ -34,6 +34,10 @@ fn replace_camera(mut commands: Commands, camera_query: Query<Entity, With<Camer
         Msaa::Off,
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+}
+
+fn set_bg(mut clear_color: ResMut<ClearColor>) {
+    clear_color.0 = Color::srgb_u8(48, 193, 255);
 }
 
 fn setup(mut commands: Commands) {
