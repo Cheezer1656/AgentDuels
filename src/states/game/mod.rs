@@ -37,22 +37,51 @@ fn replace_camera(mut commands: Commands, camera_query: Query<Entity, With<Camer
 }
 
 fn setup(mut commands: Commands) {
-    let mut test_chunk = Chunk::default();
-    test_chunk
-        .set_block(0, 0, 0, world::BlockType::Grass)
-        .unwrap();
-    test_chunk
-        .set_block(1, 0, 0, world::BlockType::RedBlock)
-        .unwrap();
-    test_chunk
-        .set_block(2, 0, 0, world::BlockType::Dirt)
-        .unwrap();
     let mut chunkmap = ChunkMap::default();
-    chunkmap.insert((0, 0, 0).into(), test_chunk);
-    chunkmap.insert((-1, 0, 0).into(), Chunk::default());
-    chunkmap
-        .set_block((-16, 0, 0).into(), world::BlockType::BlueBlock)
-        .unwrap();
+
+    for x in -2..=2 {
+        for y in -1..=1 {
+            for z in -1..=1 {
+                chunkmap.insert((x, y, z).into(), Chunk::default());
+            }
+        }
+    }
+
+    for x in -20..=20 {
+        for y in -8..=0 {
+            chunkmap
+                .set_block(
+                    (x, y, 0).into(),
+                    match x {
+                        -20..0 => world::BlockType::BlueBlock,
+                        0 => world::BlockType::WhiteBlock,
+                        1..=20 => world::BlockType::RedBlock,
+                        _ => unreachable!(),
+                    },
+                )
+                .unwrap();
+        }
+    }
+
+    for i in 0..2 {
+        for x in 21..=30 {
+            for y in -5..=0 {
+                for z in -5..=5 {
+                    chunkmap
+                        .set_block(
+                            (x * (i * 2 - 1), y, z).into(),
+                            match y {
+                                -5..=-3 => world::BlockType::Stone,
+                                -2..=-1 => world::BlockType::Dirt,
+                                0 => world::BlockType::Grass,
+                                _ => unreachable!(),
+                            },
+                        )
+                        .unwrap();
+                }
+            }
+        }
+    }
 
     commands.spawn((chunkmap, AutoDespawn(AppState::Game)));
 }

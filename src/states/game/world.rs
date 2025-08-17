@@ -17,18 +17,22 @@ pub enum BlockType {
     Air,
     Grass,
     Dirt,
+    Stone,
     RedBlock,
     BlueBlock,
+    WhiteBlock,
 }
 
 impl BlockType {
     pub fn get_uv(&self) -> (f32, f32, f32, f32) {
         match self {
             BlockType::Air => (0.0, 0.0, 0.0, 0.0),
-            BlockType::Grass => (0.0, 0.5, 0.5, 0.0),
-            BlockType::Dirt => (0.5, 1.0, 0.5, 0.0),
-            BlockType::RedBlock => (0.5, 0.0, 1.0, 0.5),
-            BlockType::BlueBlock => (0.5, 1.0, 1.0, 0.5),
+            BlockType::Grass => (0.0, 0.25, 0.25, 0.0),
+            BlockType::Dirt => (0.25, 0.5, 0.25, 0.0),
+            BlockType::Stone => (0.5, 0.75, 0.25, 0.0),
+            BlockType::RedBlock => (0.25, 0.0, 0.5, 0.25),
+            BlockType::BlueBlock => (0.25, 0.5, 0.5, 0.25),
+            BlockType::WhiteBlock => (0.5, 0.75, 0.5, 0.25),
         }
     }
 }
@@ -297,7 +301,6 @@ fn regen_dirty_chunks(
     for mut chunk_map in query.iter_mut() {
         for (pos, chunk) in chunk_map.chunks.iter_mut() {
             if chunk.dirty {
-                println!("Regenerating chunk at {:?}", pos);
                 if let Some(mesh_entity) = chunk.mesh {
                     commands.entity(mesh_entity).despawn();
                 }
