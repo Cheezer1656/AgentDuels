@@ -6,9 +6,13 @@ use bevy::{
 
 use crate::{
     AppState, AutoDespawn,
-    states::game::world::{Chunk, ChunkMap, WorldPlugin},
+    states::game::{
+        player::Player,
+        world::{Chunk, ChunkMap, WorldPlugin},
+    },
 };
 
+mod player;
 mod world;
 
 pub struct GamePlugin;
@@ -40,7 +44,11 @@ fn set_bg(mut clear_color: ResMut<ClearColor>) {
     clear_color.0 = Color::srgb_u8(48, 193, 255);
 }
 
-fn setup(mut commands: Commands) {
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     let mut chunkmap = ChunkMap::default();
 
     for x in -2..=2 {
@@ -88,6 +96,24 @@ fn setup(mut commands: Commands) {
     }
 
     commands.spawn((chunkmap, AutoDespawn(AppState::Game)));
+
+    let player_mesh = meshes.add(Cuboid::new(0.6, 1.8, 0.6));
+
+    commands.spawn((
+        Player::new(0),
+        Mesh3d(player_mesh.clone()),
+        MeshMaterial3d(materials.add(Color::srgb_u8(237, 28, 36))),
+        Transform::from_xyz(21.0, 1.0, 0.0),
+        AutoDespawn(AppState::Game),
+    ));
+
+    commands.spawn((
+        Player::new(1),
+        Mesh3d(player_mesh),
+        MeshMaterial3d(materials.add(Color::srgb_u8(47, 54, 153))),
+        Transform::from_xyz(-21.0, 1.0, 0.0),
+        AutoDespawn(AppState::Game),
+    ));
 }
 
 fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
