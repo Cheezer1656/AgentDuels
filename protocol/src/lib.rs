@@ -6,8 +6,10 @@ use serde::{Deserialize, Serialize};
 
 pub mod packets;
 
-pub trait Packet: Serialize + for<'de> Deserialize<'de> + Send + Sync {
-    const ID: u8;
+#[derive(Serialize, Deserialize)]
+pub enum Packet {
+    MatchID(packets::MatchIDPacket),
+    Handshake(packets::HandshakePacket)
 }
 
 #[derive(Default)]
@@ -16,10 +18,8 @@ pub struct PacketCodec {
 }
 
 impl PacketCodec {
-    pub fn write<P: Packet>(&self, packet: &P) -> anyhow::Result<Vec<u8>> {
-        let mut buf = Vec::with_capacity(1);
-        buf.push(P::ID);
-        buf = postcard::to_extend(packet, buf)?;
+    pub fn write(&self, packet: &Packet) -> anyhow::Result<Vec<u8>> {
+        let mut buf = postcard::to_allocvec(packet)?;
         if let Some(cipher) = &self.cipher {
             let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
             let mut new_buf = nonce.to_vec();
@@ -33,22 +33,18 @@ impl PacketCodec {
         Ok(buf)
     }
 
-    pub fn read<P: Packet>(&self, data: &[u8]) -> anyhow::Result<P> {
-        let buf = if let Some(cipher) = &self.cipher {
+    pub fn read(&self, data: &[u8]) -> anyhow::Result<Packet> {
+        let buf: &[u8] = if let Some(cipher) = &self.cipher {
             let nonce = data
                 .get(0..12)
                 .ok_or_else(|| anyhow::anyhow!("Data too short for nonce"))?;
-            cipher
+            &cipher
                 .decrypt(nonce.into(), &data[12..])
                 .map_err(|_| anyhow::anyhow!("Decryption failed"))?
         } else {
-            data.to_vec()
+            data
         };
-        if buf.is_empty() || buf[0] != P::ID {
-            return Err(anyhow::anyhow!("Invalid packet ID"));
-        }
-        let packet: P = postcard::from_bytes(&buf[1..])?;
-        Ok(packet)
+        Ok(postcard::from_bytes(buf)?)
     }
 
     pub fn enable_encryption(&mut self, key: &[u8; 32]) -> anyhow::Result<()> {
@@ -62,44 +58,47 @@ impl PacketCodec {
 
 #[cfg(test)]
 mod tests {
-    use agentduels_protocol_macros::Packet;
-
     use super::*;
 
-    #[derive(Packet, Serialize, Deserialize)]
-    struct TestPacket {
-        num: u32,
-        data: String,
+    #[test]
+    fn packet_enum_size_check() {
+        use std::mem::size_of;
+        // Ensure the Packet enum is not larger than 16 bytes
+        assert!(size_of::<Packet>() <= 16, "Packet enum is too large");
     }
 
     #[test]
-    fn test_packet_codec() {
-        let packet = TestPacket {
-            num: 42,
-            data: "Hello, World!".to_string(),
-        };
+    fn packet_encode_decode() {
+        let version = 20395;
+        let packet = Packet::Handshake(packets::HandshakePacket {
+            protocol_version: version,
+        });
 
         let codec = PacketCodec::default();
         let serialized = codec.write(&packet).unwrap();
-        let deserialized: TestPacket = codec.read(&serialized).unwrap();
+        let deserialized = codec.read(&serialized).unwrap();
 
-        assert_eq!(packet.num, deserialized.num);
-        assert_eq!(packet.data, deserialized.data);
+        match deserialized {
+            Packet::Handshake(h) => assert_eq!(h.protocol_version, version),
+            _ => panic!("Expected Handshake packet"),
+        }
     }
 
     #[test]
-    fn test_packet_codec_encrypted() {
-        let packet = TestPacket {
-            num: 42,
-            data: "Hello, World!".to_string(),
-        };
+    fn packet_encode_decode_encrypted() {
+        let version = 20395;
+        let packet = Packet::Handshake(packets::HandshakePacket {
+            protocol_version: version,
+        });
 
         let mut codec = PacketCodec::default();
         codec.enable_encryption(&[42; 32]).unwrap();
         let serialized = codec.write(&packet).unwrap();
-        let deserialized: TestPacket = codec.read(&serialized).unwrap();
+        let deserialized = codec.read(&serialized).unwrap();
 
-        assert_eq!(packet.num, deserialized.num);
-        assert_eq!(packet.data, deserialized.data);
+        match deserialized {
+            Packet::Handshake(h) => assert_eq!(h.protocol_version, version),
+            _ => panic!("Expected Handshake packet"),
+        }
     }
 }

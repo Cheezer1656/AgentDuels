@@ -1,6 +1,6 @@
 use std::net::ToSocketAddrs;
 
-use agentduels_protocol::{PacketCodec, packets::MatchIDPacket};
+use agentduels_protocol::{packets::MatchIDPacket, Packet, PacketCodec};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{
@@ -24,7 +24,7 @@ impl GameServer {
             let (socket, _) = listener.accept().await.unwrap();
             let (tx, rx) = mpsc::channel(10);
             if let Some((queue_socket, queue_tx, queue_rx)) = self.queue.take() {
-                let packet = MatchIDPacket { id: rand::random() };
+                let packet = Packet::MatchID(MatchIDPacket { id: rand::random() });
 
                 let (read, mut write) = socket.into_split();
                 if let Err(_) = write.write_all(&codec.write(&packet)?).await {

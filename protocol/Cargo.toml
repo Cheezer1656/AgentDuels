@@ -5,7 +5,6 @@ edition.workspace = true
 
 [dependencies]
 aes-gcm = "0.10.3"
-agentduels_protocol_macros = { version = "0.1.0", path = "macros" }
 anyhow.workspace = true
 postcard.workspace = true
 serde.workspace = true

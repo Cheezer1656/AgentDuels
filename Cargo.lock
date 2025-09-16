@@ -310,17 +310,9 @@ name = "agentduels_protocol"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
- "agentduels_protocol_macros",
  "anyhow",
  "postcard",
  "serde",
-]
-
-[[package]]
-name = "agentduels_protocol_macros"
-version = "0.1.0"
-dependencies = [
- "syn",
 ]
 
 [[package]]
