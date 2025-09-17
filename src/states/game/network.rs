@@ -77,6 +77,7 @@ fn run_game_update(world: &mut World) {
     let mut net_state = world.resource_mut::<NetworkState>();
     net_state.prev_actions = action;
     net_state.nonce = nonce;
+    net_state.phase = NetworkPhase::AwaitingData;
 }
 
 #[derive(Resource)]
@@ -120,6 +121,7 @@ fn process_opponent_actions(mut packet_ev: EventReader<PacketEvent>, mut net_sta
             }
 
             opponent_actions.0 = actions.prev_actions;
+            println!("Received opponent actions: {:?}", actions.prev_actions);
 
             net_state.prev_hash = actions.action_hash;
             net_state.tick += 1;

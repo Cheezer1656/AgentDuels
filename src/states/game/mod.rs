@@ -4,13 +4,16 @@ use bevy::{
 
 use crate::{
     states::game::{
-        network::NetworkPlugin, player::Player, world::{Chunk, ChunkMap, WorldPlugin}
+        gameloop::GameLoopPlugin, network::NetworkPlugin, player::Player, world::{Chunk, ChunkMap, WorldPlugin}
     }, AppState, AutoDespawn
 };
 
 mod player;
 mod world;
 mod network;
+mod gameloop;
+
+const PLAYER_SPEED: f32 = 0.1;
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Clone, Debug)]
 pub struct GameUpdate;
@@ -20,7 +23,7 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_schedule(Schedule::new(GameUpdate))
-            .add_plugins((WorldPlugin, NetworkPlugin))
+            .add_plugins((WorldPlugin, NetworkPlugin, GameLoopPlugin))
             .add_systems(
                 OnEnter(AppState::Game),
                 (replace_camera, set_bg, setup, cursor_grab),

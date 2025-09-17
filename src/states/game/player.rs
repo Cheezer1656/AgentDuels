@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct Player {
-    pub id: u16,
+    pub id: u16, // ID 0 = self, ID 1 = opponent
 }
 
 impl Player {
