@@ -301,7 +301,9 @@ dependencies = [
  "agentduels_protocol",
  "anyhow",
  "bevy",
+ "blake3",
  "postcard",
+ "rand 0.9.1",
  "tokio",
 ]
 
@@ -2904,6 +2906,7 @@ name = "headless"
 version = "0.1.0"
 dependencies = [
  "agentduels",
+ "agentduels_protocol",
 ]
 
 [[package]]

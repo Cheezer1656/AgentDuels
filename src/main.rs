@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::states::{GamePlugin, JoiningPlugin, MainMenuPlugin};
 
-mod networking;
+mod client;
 mod states;
 
 const CONTROL_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8082);

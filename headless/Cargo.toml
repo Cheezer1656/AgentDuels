@@ -5,3 +5,4 @@ edition.workspace = true
 
 [dependencies]
 agentduels = { version = "0.1.0", path = ".." }
+agentduels_protocol.workspace = true

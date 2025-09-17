@@ -7,7 +7,9 @@ edition = "2024"
 agentduels_protocol.workspace = true
 anyhow.workspace = true
 bevy = "0.16.1"
+blake3 = "1.8.2"
 postcard.workspace = true
+rand.workspace = true
 tokio.workspace = true
 
 [workspace]

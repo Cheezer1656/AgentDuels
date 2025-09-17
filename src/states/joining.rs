@@ -4,14 +4,17 @@ use bevy::{
     tasks::{AsyncComputeTaskPool, Task, block_on, futures_lite::future},
 };
 
-use crate::{AppState, AutoDespawn, networking::GameClient};
+use crate::{AppState, AutoDespawn, client::GameConnection};
 
 pub struct JoiningPlugin;
 
 impl Plugin for JoiningPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::Joining), (setup, start_connection))
-            .add_systems(Update, poll_connection.run_if(in_state(AppState::Joining)));
+            .add_systems(
+                Update,
+                poll_connection.run_if(in_state(AppState::Joining)),
+            );
     }
 }
 
@@ -31,7 +34,7 @@ fn setup(mut commands: Commands) {
 }
 
 #[derive(Component)]
-struct ConnectingTask(Task<Result<GameClient, anyhow::Error>>);
+struct ConnectingTask(Task<Result<GameConnection, anyhow::Error>>);
 
 fn start_connection(mut commands: Commands, task_query: Query<&ConnectingTask>) {
     if task_query.single().is_ok() {
@@ -40,7 +43,7 @@ fn start_connection(mut commands: Commands, task_query: Query<&ConnectingTask>) 
     }
     println!("Starting connection to game server...");
     let task_pool = AsyncComputeTaskPool::get();
-    let task = task_pool.spawn(async move { GameClient::connect(SERVER_ADDR) });
+    let task = task_pool.spawn(async move { GameConnection::connect(SERVER_ADDR) });
     commands.spawn(ConnectingTask(task));
 }
 
@@ -52,9 +55,10 @@ fn poll_connection(
     for (entity, mut connecting_task) in task_query.iter_mut() {
         if let Some(result) = block_on(future::poll_once(&mut connecting_task.0)) {
             match result {
-                Ok(client) => {
+                Ok(connection) => {
                     println!("Connected to game server");
-                    commands.spawn(client);
+                    connection.socket.set_nonblocking(true).unwrap(); // TODO - Replace with proper decoupling later
+                    commands.insert_resource(connection);
                     next_state.set(AppState::Game);
                 }
                 Err(e) => {

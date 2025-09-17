@@ -1,17 +1,19 @@
 use anyhow::bail;
-use bevy::ecs::component::Component;
-use std::{io::{Read, Write}, net::{SocketAddr, TcpStream}};
-
-use agentduels_protocol::{
-    packets::{HandshakePacket, MatchIDPacket}, Packet, PacketCodec
+use bevy::ecs::resource::Resource;
+use std::{
+    io::{Read, Write},
+    net::{SocketAddr, TcpStream},
 };
 
-#[derive(Component)]
-pub struct GameClient {
-    socket: TcpStream,
+use agentduels_protocol::{Packet, PacketCodec, packets::HandshakePacket};
+
+#[derive(Resource)]
+pub struct GameConnection {
+    pub socket: TcpStream,
+    pub codec: PacketCodec,
 }
 
-impl GameClient {
+impl GameConnection {
     pub fn connect(addr: SocketAddr) -> anyhow::Result<Self> {
         let mut socket = TcpStream::connect(addr).expect("Failed to connect to game server");
 
@@ -20,7 +22,7 @@ impl GameClient {
         let mut buf = [0; 8];
         socket.read(buf.as_mut_slice()).unwrap();
         println!("Read {:?} bytes", &buf);
-        let Packet::MatchID(packet) = codec.read(&buf).unwrap() else {
+        let Packet::MatchID(ref packet) = codec.read(&buf).unwrap()[0] else {
             bail!("Expected MatchID packet");
         };
 
@@ -29,14 +31,11 @@ impl GameClient {
         let packet = Packet::Handshake(HandshakePacket {
             protocol_version: 1,
         });
-        socket
-            .write_all(&codec.write(&packet).unwrap())
-
-            .unwrap();
+        socket.write_all(&codec.write(&packet).unwrap()).unwrap();
 
         let mut buf = [0; 8];
         socket.read(buf.as_mut_slice()).unwrap();
-        let Packet::Handshake(packet) = codec.read(&buf).unwrap() else {
+        let Packet::Handshake(ref packet) = codec.read(&buf).unwrap()[0] else {
             bail!("Expected Handshake packet");
         };
 
@@ -45,6 +44,12 @@ impl GameClient {
             packet.protocol_version
         );
 
-        Ok(GameClient { socket })
+        Ok(GameConnection { socket, codec })
+    }
+
+    pub fn send_packet(&mut self, packet: Packet) -> anyhow::Result<()> {
+        let data = self.codec.write(&packet)?;
+        self.socket.write_all(&data)?;
+        Ok(())
     }
 }

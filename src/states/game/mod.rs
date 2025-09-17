@@ -1,25 +1,26 @@
 use bevy::{
-    input::mouse::MouseMotion,
-    prelude::*,
-    window::{CursorGrabMode, PrimaryWindow},
+    ecs::schedule::ScheduleLabel, input::mouse::MouseMotion, prelude::*, window::{CursorGrabMode, PrimaryWindow}
 };
 
 use crate::{
-    AppState, AutoDespawn,
     states::game::{
-        player::Player,
-        world::{Chunk, ChunkMap, WorldPlugin},
-    },
+        network::NetworkPlugin, player::Player, world::{Chunk, ChunkMap, WorldPlugin}
+    }, AppState, AutoDespawn
 };
 
 mod player;
 mod world;
+mod network;
+
+#[derive(ScheduleLabel, Hash, PartialEq, Eq, Clone, Debug)]
+pub struct GameUpdate;
 
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(WorldPlugin)
+        app.add_schedule(Schedule::new(GameUpdate))
+            .add_plugins((WorldPlugin, NetworkPlugin))
             .add_systems(
                 OnEnter(AppState::Game),
                 (replace_camera, set_bg, setup, cursor_grab),
