@@ -15,8 +15,6 @@ fn handle_player_input(mut player_query: Query<(&Player, &mut Transform)>, actio
     for (player, mut transform) in player_query.iter_mut() {
         let actions = if player.id == 0 { actions.0 } else { opp_actions.0 };
 
-        println!("Player {} actions: {:?}", player.id, actions);
-
         let mut delta = Vec3::ZERO;
 
         if actions.is_set(PlayerActions::MOVE_FORWARD) {
