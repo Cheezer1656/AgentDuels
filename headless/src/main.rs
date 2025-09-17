@@ -16,5 +16,7 @@ fn main() {
         println!("{:?}", actions.prev_actions);
 
         connection.send_packet(Packet::PlayerActions(actions.clone())).unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(50));
     }
 }
