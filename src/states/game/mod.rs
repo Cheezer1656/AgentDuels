@@ -160,19 +160,16 @@ fn move_cam(
     };
 
     let mut delta = Vec3::ZERO;
-    if keyboard_input.pressed(KeyCode::KeyW) {
-        delta.z -= 0.1;
-    } else if keyboard_input.pressed(KeyCode::KeyS) {
-        delta.z += 0.1;
-    }
-    if keyboard_input.pressed(KeyCode::KeyA) {
-        delta.x -= 0.1;
-    } else if keyboard_input.pressed(KeyCode::KeyD) {
-        delta.x += 0.1;
-    } else if keyboard_input.pressed(KeyCode::Space) {
-        transform.translation.y += 0.1;
-    } else if keyboard_input.pressed(KeyCode::ShiftLeft) {
-        transform.translation.y -= 0.1;
+    for keycode in keyboard_input.get_pressed() {
+        match keycode {
+            KeyCode::KeyW => delta.z -= 0.1,
+            KeyCode::KeyS => delta.z += 0.1,
+            KeyCode::KeyA => delta.x -= 0.1,
+            KeyCode::KeyD => delta.x += 0.1,
+            KeyCode::Space => transform.translation.y += 0.1,
+            KeyCode::ShiftLeft => transform.translation.y -= 0.1,
+            _ => {}
+        }
     }
 
     for event in mouse_motion.read() {
@@ -181,9 +178,8 @@ fn move_cam(
         transform.rotation = yaw * transform.rotation * pitch;
     }
 
-    let y = delta.y;
     delta = transform.rotation.mul_vec3(delta);
-    delta.y = y;
+    delta.y = 0.0;
 
     transform.translation += delta;
 }
