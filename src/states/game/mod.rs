@@ -1,17 +1,24 @@
 use bevy::{
-    ecs::schedule::ScheduleLabel, input::mouse::MouseMotion, prelude::*, window::{CursorGrabMode, PrimaryWindow}
+    ecs::schedule::ScheduleLabel,
+    input::mouse::MouseMotion,
+    prelude::*,
+    window::{CursorGrabMode, PrimaryWindow},
 };
 
 use crate::{
+    AppState, AutoDespawn,
     states::game::{
-        gameloop::GameLoopPlugin, network::NetworkPlugin, player::Player, world::{Chunk, ChunkMap, WorldPlugin}
-    }, AppState, AutoDespawn
+        gameloop::GameLoopPlugin,
+        network::NetworkPlugin,
+        player::Player,
+        world::{Chunk, ChunkMap, WorldPlugin},
+    },
 };
 
+mod gameloop;
+mod network;
 mod player;
 mod world;
-mod network;
-mod gameloop;
 
 const PLAYER_SPEED: f32 = 0.1;
 
@@ -102,22 +109,27 @@ fn setup(
     commands.spawn((chunkmap, AutoDespawn(AppState::Game)));
 
     let player_mesh = meshes.add(Cuboid::new(0.6, 1.8, 0.6));
+    let player_direction_mesh = meshes.add(Cuboid::new(1.0, 0.1, 0.1));
 
-    commands.spawn((
-        Player::new(0),
-        Mesh3d(player_mesh.clone()),
-        MeshMaterial3d(materials.add(Color::srgb_u8(237, 28, 36))),
-        Transform::from_xyz(21.0, 1.0, 0.0),
-        AutoDespawn(AppState::Game),
-    ));
-
-    commands.spawn((
-        Player::new(1),
-        Mesh3d(player_mesh),
-        MeshMaterial3d(materials.add(Color::srgb_u8(47, 54, 153))),
-        Transform::from_xyz(-21.0, 1.0, 0.0),
-        AutoDespawn(AppState::Game),
-    ));
+    for i in 0..2_i32 {
+        let direction = (i * 2 - 1) as f32;
+        commands.spawn((
+            Player::new(i as u16),
+            Mesh3d(player_mesh.clone()),
+            MeshMaterial3d(materials.add(if i == 0 {
+                Color::srgb_u8(237, 28, 36)
+            } else {
+                Color::srgb_u8(47, 54, 153)
+            })),
+            Transform::from_xyz( direction * -21.0, 1.0, 0.0),
+            AutoDespawn(AppState::Game),
+            children![(
+                Mesh3d(player_direction_mesh.clone()),
+                MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
+                Transform::from_xyz(direction as f32 * 0.3, 0.8, 0.0)
+            )],
+        ));
+    }
 }
 
 fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
