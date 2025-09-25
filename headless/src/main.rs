@@ -10,8 +10,10 @@ fn main() {
     loop {
         let mut buf = [0_u8; 1024];
         connection.socket.read(&mut buf).unwrap();
-        let Packet::PlayerActions(ref actions) = connection.codec.read(&buf).unwrap()[0] else {
-            panic!("Expected PlayerActions packet");
+        let packets = connection.codec.read(&buf).unwrap();
+        let Some(Packet::PlayerActions(actions)) = packets.get(0) else {
+            println!("Expected PlayerActions packet");
+            break;
         };
         println!("{:?}", actions.prev_actions);
 
