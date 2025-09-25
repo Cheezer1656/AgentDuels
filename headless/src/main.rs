@@ -1,4 +1,3 @@
-use core::panic;
 use std::io::Read;
 
 use agentduels::{client::GameConnection, SERVER_ADDR};
