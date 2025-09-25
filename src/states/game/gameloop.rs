@@ -30,10 +30,18 @@ fn handle_player_input(mut player_query: Query<(&Player, &mut Transform)>, actio
             delta.z -= PLAYER_SPEED;
         }
 
+        let yaw = Quat::from_axis_angle(Vec3::Y, actions.rotation[0]);
+        let pitch = Quat::from_axis_angle(Vec3::X, actions.rotation[1]);
+        transform.rotation = yaw * transform.rotation * pitch;
+
+        delta = transform.rotation.mul_vec3(delta);
+        delta.y = 0.0;
+
         transform.translation += delta;
     }
 }
 
 fn test_movement(mut actions: ResMut<PlayerActionsTracker>) {
-    actions.0.set(PlayerActions::MOVE_BACKWARD);
+    actions.0.set(PlayerActions::MOVE_FORWARD);
+    actions.0.rotation[0] = 0.1;
 }

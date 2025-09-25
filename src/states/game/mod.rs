@@ -112,7 +112,11 @@ fn setup(
     let player_direction_mesh = meshes.add(Cuboid::new(1.0, 0.1, 0.1));
 
     for i in 0..2_i32 {
-        let direction = (i * 2 - 1) as f32;
+        let mut transform = Transform::from_xyz( (i * 2 - 1) as f32 * -21.0, 1.5, 0.0);
+        if i == 0 {
+            transform.rotate_y(std::f32::consts::PI);
+        }
+
         commands.spawn((
             Player::new(i as u16),
             Mesh3d(player_mesh.clone()),
@@ -121,12 +125,12 @@ fn setup(
             } else {
                 Color::srgb_u8(47, 54, 153)
             })),
-            Transform::from_xyz( direction * -21.0, 1.0, 0.0),
+            transform,
             AutoDespawn(AppState::Game),
             children![(
                 Mesh3d(player_direction_mesh.clone()),
                 MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
-                Transform::from_xyz(direction as f32 * 0.3, 0.8, 0.0)
+                Transform::from_xyz(0.3, 0.7, 0.0)
             )],
         ));
     }

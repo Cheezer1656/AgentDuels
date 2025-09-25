@@ -62,7 +62,10 @@ fn run_game_update(world: &mut World) {
 
     let nonce: u128 = rand::random();
     let mut hasher = blake3::Hasher::new();
-    hasher.update(&[action.0]);
+    hasher.update(&[action.bits]);
+    let rotation = action.rotation;
+    hasher.update(&rotation[0].to_le_bytes());
+    hasher.update(&rotation[1].to_le_bytes());
     hasher.update(&nonce.to_le_bytes());
     let action_hash: [u8; 32] = hasher.finalize().into();
 
@@ -112,7 +115,10 @@ fn process_opponent_actions(mut packet_ev: EventReader<PacketEvent>, mut net_sta
         if let Packet::PlayerActions(actions) = packet {
             if net_state.tick > 0 { // Skip the first tick since we have no previous data
                 let mut hasher = blake3::Hasher::new();
-                hasher.update(&[actions.prev_actions.0]);
+                hasher.update(&[actions.prev_actions.bits]);
+                let rotation = actions.prev_actions.rotation;
+                hasher.update(&rotation[0].to_le_bytes());
+                hasher.update(&rotation[1].to_le_bytes());
                 hasher.update(&actions.nonce.to_le_bytes());
                 let expected_hash: [u8; 32] = hasher.finalize().into();
                 if expected_hash != net_state.prev_hash {

@@ -11,7 +11,10 @@ pub struct HandshakePacket {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
-pub struct PlayerActions(pub u8);
+pub struct PlayerActions {
+    pub bits: u8,
+    pub rotation: [f32; 2], // yaw, pitch
+}
 
 impl PlayerActions {
     pub const MOVE_FORWARD: u8 = 1 << 0;
@@ -23,15 +26,15 @@ impl PlayerActions {
     pub const USE_ITEM: u8 = 1 << 6;
 
     pub fn is_set(&self, flag: u8) -> bool {
-        self.0 & flag != 0
+        self.bits & flag != 0
     }
 
     pub fn set(&mut self, flag: u8) {
-        self.0 |= flag;
+        self.bits |= flag;
     }
 
     pub fn unset(&mut self, flag: u8) {
-        self.0 &= !flag;
+        self.bits &= !flag;
     }
 }
 
