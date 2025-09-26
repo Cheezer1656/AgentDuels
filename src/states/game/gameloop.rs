@@ -1,18 +1,36 @@
 use agentduels_protocol::packets::PlayerActions;
 use bevy::prelude::*;
 
-use crate::states::{game::{network::{OpponentActionsTracker, PlayerActionsTracker}, player::Player, PLAYER_SPEED}, GameUpdate};
+use crate::states::{game::{network::{OpponentActionsTracker, PlayerActionsTracker}, player::Player, world::{BlockType, ChunkMap}, PLAYER_SPEED}, GameUpdate, Velocity};
 
 pub struct GameLoopPlugin;
 
 impl Plugin for GameLoopPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(GameUpdate, (handle_player_input, test_movement));
+        app.add_systems(GameUpdate, (apply_physics, handle_player_input, test_movement));
     }
 }
 
-fn handle_player_input(mut player_query: Query<(&Player, &mut Transform)>, actions: Res<PlayerActionsTracker>, opp_actions: Res<OpponentActionsTracker>) {
-    for (player, mut transform) in player_query.iter_mut() {
+fn apply_physics(mut chunkmap_query: Query<&ChunkMap>, mut entity_query: Query<(&mut Velocity, &mut Transform)>) {
+    let Ok(chunkmap) = chunkmap_query.single_mut() else {
+        return;
+    };
+    for (mut velocity, mut transform) in entity_query.iter_mut() {
+        // Apply gravity
+        if chunkmap.get_block(transform.translation.as_ivec3()) == BlockType::Air && velocity.0.y > -0.9 {
+            velocity.0.y -= 0.03;
+        }
+
+        transform.translation += velocity.0;
+
+        // Reduce horizontal velocity (friction)
+        velocity.0.x *= 0.8;
+        velocity.0.z *= 0.8;
+    }
+}
+
+fn handle_player_input(mut player_query: Query<(&Player, &mut Transform, &mut Velocity)>, actions: Res<PlayerActionsTracker>, opp_actions: Res<OpponentActionsTracker>) {
+    for (player, mut transform, mut velocity) in player_query.iter_mut() {
         let actions = if player.id == 0 { actions.0 } else { opp_actions.0 };
 
         let mut delta = Vec3::ZERO;
@@ -37,7 +55,8 @@ fn handle_player_input(mut player_query: Query<(&Player, &mut Transform)>, actio
         delta = transform.rotation.mul_vec3(delta);
         delta.y = 0.0;
 
-        transform.translation += delta;
+        velocity.0.x = delta.x;
+        velocity.0.z = delta.z;
     }
 }
 

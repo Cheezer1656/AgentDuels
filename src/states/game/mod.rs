@@ -55,6 +55,9 @@ fn set_bg(mut clear_color: ResMut<ClearColor>) {
     clear_color.0 = Color::srgb_u8(48, 193, 255);
 }
 
+#[derive(Component)]
+pub struct Velocity(pub Vec3);
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -125,6 +128,7 @@ fn setup(
             } else {
                 Color::srgb_u8(47, 54, 153)
             })),
+            Velocity(Vec3::ZERO),
             transform,
             AutoDespawn(AppState::Game),
             children![(
