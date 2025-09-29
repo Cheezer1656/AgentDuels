@@ -2,7 +2,15 @@ use agentduels_protocol::packets::PlayerActions;
 use avian3d::prelude::AngularVelocity;
 use bevy::prelude::*;
 
-use crate::states::{game::{network::{OpponentActionsTracker, PlayerActionsTracker}, player::Player, world::{BlockType, ChunkMap}, PLAYER_SPEED}, GameUpdate};
+use crate::states::{
+    GameUpdate,
+    game::{
+        PLAYER_SPEED,
+        network::{OpponentActionsTracker, PlayerActionsTracker},
+        player::Player,
+        world::{BlockType, ChunkMap},
+    },
+};
 
 pub struct GameLoopPlugin;
 
@@ -12,9 +20,17 @@ impl Plugin for GameLoopPlugin {
     }
 }
 
-fn handle_player_input(mut player_query: Query<(&Player, &mut Transform, &mut AngularVelocity)>, actions: Res<PlayerActionsTracker>, opp_actions: Res<OpponentActionsTracker>) {
+fn handle_player_input(
+    mut player_query: Query<(&Player, &mut Transform, &mut AngularVelocity)>,
+    actions: Res<PlayerActionsTracker>,
+    opp_actions: Res<OpponentActionsTracker>,
+) {
     for (player, mut transform, mut velocity) in player_query.iter_mut() {
-        let actions = if player.id == 0 { actions.0 } else { opp_actions.0 };
+        let actions = if player.id == 0 {
+            actions.0
+        } else {
+            opp_actions.0
+        };
 
         let mut delta = Vec3::ZERO;
 

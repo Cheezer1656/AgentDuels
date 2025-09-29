@@ -11,10 +11,7 @@ pub struct JoiningPlugin;
 impl Plugin for JoiningPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::Joining), (setup, start_connection))
-            .add_systems(
-                Update,
-                poll_connection.run_if(in_state(AppState::Joining)),
-            );
+            .add_systems(Update, poll_connection.run_if(in_state(AppState::Joining)));
     }
 }
 

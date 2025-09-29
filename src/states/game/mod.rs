@@ -1,4 +1,7 @@
-use avian3d::{prelude::{AngularVelocity, Collider, LockedAxes, RigidBody}, PhysicsPlugins};
+use avian3d::{
+    PhysicsPlugins,
+    prelude::{AngularVelocity, Collider, LockedAxes, RigidBody},
+};
 use bevy::{
     ecs::schedule::ScheduleLabel,
     input::mouse::MouseMotion,
@@ -31,7 +34,12 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_schedule(Schedule::new(GameUpdate))
-            .add_plugins((WorldPlugin, NetworkPlugin, GameLoopPlugin, PhysicsPlugins::default()))
+            .add_plugins((
+                WorldPlugin,
+                NetworkPlugin,
+                GameLoopPlugin,
+                PhysicsPlugins::default(),
+            ))
             .add_systems(
                 OnEnter(AppState::Game),
                 (replace_camera, set_bg, setup, cursor_grab),
@@ -107,7 +115,9 @@ fn setup(
         }
     }
 
-    chunkmap.set_block((0, 1, 0).into(), world::BlockType::WhiteBlock).unwrap();
+    chunkmap
+        .set_block((0, 1, 0).into(), world::BlockType::WhiteBlock)
+        .unwrap();
 
     commands.spawn((chunkmap, AutoDespawn(AppState::Game)));
 
@@ -115,7 +125,7 @@ fn setup(
     let player_direction_mesh = meshes.add(Cuboid::new(1.0, 0.1, 0.1));
 
     for i in 0..2_i32 {
-        let mut transform = Transform::from_xyz( (i * 2 - 1) as f32 * -21.0, 1.4, 0.0);
+        let mut transform = Transform::from_xyz((i * 2 - 1) as f32 * -21.0, 1.4, 0.0);
         if i == 0 {
             transform.rotate_y(std::f32::consts::PI);
         }

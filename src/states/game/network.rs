@@ -7,14 +7,14 @@ use agentduels_protocol::{
 };
 use bevy::prelude::*;
 
-use crate::states::{game::GameUpdate};
+use crate::states::game::GameUpdate;
 
 #[derive(Resource, Default)]
 struct NetworkState {
     tick: u64,
     phase: NetworkPhase,
     prev_actions: PlayerActions, // Our actions from the last tick
-    nonce: u128, // Our nonce from the last tick
+    nonce: u128,                 // Our nonce from the last tick
     prev_hash: [u8; 32], // The hash of the opponent's latest actions (sent in the last tick)
 }
 
@@ -42,7 +42,8 @@ impl Plugin for NetworkPlugin {
             .insert_resource(IncomingBuffer(Vec::new()))
             .add_systems(
                 Update,
-                (run_game_update, receive_packets, process_opponent_actions).run_if(in_state(crate::AppState::Game)),
+                (run_game_update, receive_packets, process_opponent_actions)
+                    .run_if(in_state(crate::AppState::Game)),
             );
     }
 }
@@ -107,13 +108,18 @@ fn receive_packets(
 #[derive(Resource, Default, Clone, Copy)]
 pub struct OpponentActionsTracker(pub PlayerActions);
 
-fn process_opponent_actions(mut packet_ev: EventReader<PacketEvent>, mut net_state: ResMut<NetworkState>, mut opponent_actions: ResMut<OpponentActionsTracker>) {
+fn process_opponent_actions(
+    mut packet_ev: EventReader<PacketEvent>,
+    mut net_state: ResMut<NetworkState>,
+    mut opponent_actions: ResMut<OpponentActionsTracker>,
+) {
     if net_state.phase != NetworkPhase::AwaitingData {
         return;
     }
     for PacketEvent(packet) in packet_ev.read() {
         if let Packet::PlayerActions(actions) = packet {
-            if net_state.tick > 0 { // Skip the first tick since we have no previous data
+            if net_state.tick > 0 {
+                // Skip the first tick since we have no previous data
                 let mut hasher = blake3::Hasher::new();
                 hasher.update(&[actions.prev_actions.bits]);
                 let rotation = actions.prev_actions.rotation;
@@ -133,5 +139,4 @@ fn process_opponent_actions(mut packet_ev: EventReader<PacketEvent>, mut net_sta
             net_state.phase = NetworkPhase::AwaitingAction;
         }
     }
-
 }

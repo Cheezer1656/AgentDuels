@@ -1,6 +1,6 @@
 use std::io::Read;
 
-use agentduels::{client::GameConnection, SERVER_ADDR};
+use agentduels::{SERVER_ADDR, client::GameConnection};
 use agentduels_protocol::Packet;
 
 fn main() {
@@ -16,7 +16,9 @@ fn main() {
         };
         println!("{:?}", actions.prev_actions);
 
-        connection.send_packet(Packet::PlayerActions(actions.clone())).unwrap();
+        connection
+            .send_packet(Packet::PlayerActions(actions.clone()))
+            .unwrap();
 
         std::thread::sleep(std::time::Duration::from_millis(50));
     }

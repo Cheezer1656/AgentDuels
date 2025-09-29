@@ -62,7 +62,7 @@ impl PacketCodec {
             data = new_buf;
         }
 
-        let mut buf = Vec::with_capacity(data.len()+1);
+        let mut buf = Vec::with_capacity(data.len() + 1);
         push_varint(&mut buf, data.len() as u32);
         buf.extend(&data);
 
@@ -159,7 +159,7 @@ mod tests {
         }
     }
 
-        #[test]
+    #[test]
     fn packet_decode_none() {
         let codec = PacketCodec::default();
         let serialized = vec![0x7F]; // Length indicates 127 bytes, but none are present

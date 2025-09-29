@@ -13,7 +13,10 @@ pub struct MainMenuPlugin;
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::MainMenu), setup)
-            .add_systems(Update, (button_press, update_connection_text).run_if(in_state(AppState::MainMenu)));
+            .add_systems(
+                Update,
+                (button_press, update_connection_text).run_if(in_state(AppState::MainMenu)),
+            );
     }
 }
 

@@ -42,5 +42,5 @@ impl PlayerActions {
 pub struct PlayerActionsPacket {
     pub prev_actions: PlayerActions,
     pub nonce: u128,
-    pub action_hash: [u8; 32]
+    pub action_hash: [u8; 32],
 }
