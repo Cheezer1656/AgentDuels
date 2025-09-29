@@ -1,3 +1,4 @@
+use avian3d::{prelude::{AngularVelocity, Collider, LockedAxes, RigidBody}, PhysicsPlugins};
 use bevy::{
     ecs::schedule::ScheduleLabel,
     input::mouse::MouseMotion,
@@ -30,7 +31,7 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_schedule(Schedule::new(GameUpdate))
-            .add_plugins((WorldPlugin, NetworkPlugin, GameLoopPlugin))
+            .add_plugins((WorldPlugin, NetworkPlugin, GameLoopPlugin, PhysicsPlugins::default()))
             .add_systems(
                 OnEnter(AppState::Game),
                 (replace_camera, set_bg, setup, cursor_grab),
@@ -54,9 +55,6 @@ fn replace_camera(mut commands: Commands, camera_query: Query<Entity, With<Camer
 fn set_bg(mut clear_color: ResMut<ClearColor>) {
     clear_color.0 = Color::srgb_u8(48, 193, 255);
 }
-
-#[derive(Component)]
-pub struct Velocity(pub Vec3);
 
 fn setup(
     mut commands: Commands,
@@ -109,26 +107,31 @@ fn setup(
         }
     }
 
+    chunkmap.set_block((0, 1, 0).into(), world::BlockType::WhiteBlock).unwrap();
+
     commands.spawn((chunkmap, AutoDespawn(AppState::Game)));
 
     let player_mesh = meshes.add(Cuboid::new(0.6, 1.8, 0.6));
     let player_direction_mesh = meshes.add(Cuboid::new(1.0, 0.1, 0.1));
 
     for i in 0..2_i32 {
-        let mut transform = Transform::from_xyz( (i * 2 - 1) as f32 * -21.0, 1.5, 0.0);
+        let mut transform = Transform::from_xyz( (i * 2 - 1) as f32 * -21.0, 1.4, 0.0);
         if i == 0 {
             transform.rotate_y(std::f32::consts::PI);
         }
 
         commands.spawn((
             Player::new(i as u16),
+            RigidBody::Dynamic,
+            Collider::cuboid(0.6, 1.8, 0.6),
+            LockedAxes::ROTATION_LOCKED,
             Mesh3d(player_mesh.clone()),
             MeshMaterial3d(materials.add(if i == 0 {
                 Color::srgb_u8(237, 28, 36)
             } else {
                 Color::srgb_u8(47, 54, 153)
             })),
-            Velocity(Vec3::ZERO),
+            AngularVelocity(Vec3::new(0.0, 0.0, 0.0)),
             transform,
             AutoDespawn(AppState::Game),
             children![(

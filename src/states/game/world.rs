@@ -1,3 +1,4 @@
+use avian3d::prelude::{Collider, RigidBody};
 use bevy::{
     asset::RenderAssetUsages,
     platform::collections::HashMap,
@@ -305,16 +306,24 @@ fn regen_dirty_chunks(
                     commands.entity(mesh_entity).despawn();
                 }
                 let mesh = chunk.generate_mesh();
-                let mesh_entity = commands
-                    .spawn((
-                        Mesh3d(meshes.add(mesh)),
-                        MeshMaterial3d(data.atlas_material.clone()),
-                        Transform::default().with_translation(pos.as_vec3() * 16.0),
-                        AutoDespawn(AppState::Game),
-                    ))
-                    .id();
-                chunk.mesh = Some(mesh_entity);
-                // Reset dirty flag after despawning
+                if mesh.count_vertices() == 0 {
+                    chunk.mesh = None;
+                    continue;
+                } else {
+                    let collider = Collider::trimesh_from_mesh(&mesh).unwrap();
+                    let mesh_entity = commands
+                        .spawn((
+                            RigidBody::Static,
+                            collider,
+                            Mesh3d(meshes.add(mesh)),
+                            MeshMaterial3d(data.atlas_material.clone()),
+                            Transform::default().with_translation(pos.as_vec3() * 16.0),
+                            AutoDespawn(AppState::Game),
+                        ))
+                        .id();
+                    chunk.mesh = Some(mesh_entity);
+                }
+                // Reset dirty flag after regenerating
                 chunk.dirty = false;
             }
         }
