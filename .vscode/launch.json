@@ -7,6 +7,18 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug binary",
+            "cargo": {
+                "args": ["build", "--bin", "agentduels"],
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false,
+            "sourceLanguages": ["rust"]
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug tests",
             "cargo": {
                 "args": ["test", "--no-run", "--package", "agentduels", "--bin", "agentduels"],
@@ -16,6 +28,5 @@
             "stopOnEntry": false,
             "sourceLanguages": ["rust"]
         }
-
     ]
 }
