@@ -194,12 +194,20 @@ fn move_cam(
     }
 
     for event in mouse_motion.read() {
-        let yaw = Quat::from_rotation_y(-event.delta.x * 0.001);
-        let pitch = Quat::from_rotation_x(-event.delta.y * 0.001);
-        transform.rotation = yaw * transform.rotation * pitch;
+        // Extract current yaw and pitch
+        let (mut yaw, mut pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
+
+        // Update yaw and pitch based on mouse movement
+        yaw -= event.delta.x * 0.001;
+        pitch = (pitch - event.delta.y * 0.001).clamp(-1.5, 1.5); // Clamp pitch
+
+        // Reconstruct rotation
+        transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
     }
 
-    delta = transform.rotation.mul_vec3(delta);
+    // Only apply yaw to movement direction
+    let yaw = Quat::from_rotation_y(transform.rotation.to_euler(EulerRot::YXZ).0);
+    delta = yaw.mul_vec3(delta);
     delta.y = 0.0;
 
     transform.translation += delta;
