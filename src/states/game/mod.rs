@@ -6,7 +6,7 @@ use bevy::{
     ecs::schedule::ScheduleLabel,
     input::mouse::MouseMotion,
     prelude::*,
-    window::{CursorGrabMode, PrimaryWindow},
+    window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
 
 use crate::{
@@ -153,27 +153,19 @@ fn setup(
     }
 }
 
-fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
-    let Ok(mut primary_window) = q_windows.single_mut() else {
-        return;
-    };
-
-    primary_window.cursor_options.grab_mode = CursorGrabMode::Confined;
-    primary_window.cursor_options.visible = false;
+fn cursor_grab(mut cursor_opts: Single<&mut CursorOptions, With<PrimaryWindow>>) {
+    cursor_opts.grab_mode = CursorGrabMode::Confined;
+    cursor_opts.visible = false;
 }
 
-fn cursor_ungrab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
-    let Ok(mut primary_window) = q_windows.single_mut() else {
-        return;
-    };
-
-    primary_window.cursor_options.grab_mode = CursorGrabMode::None;
-    primary_window.cursor_options.visible = false;
+fn cursor_ungrab(mut cursor_opts: Single<&mut CursorOptions, With<PrimaryWindow>>) {
+    cursor_opts.grab_mode = CursorGrabMode::None;
+    cursor_opts.visible = true;
 }
 
 fn move_cam(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_motion: EventReader<MouseMotion>,
+    mut mouse_motion: MessageReader<MouseMotion>,
     mut camera: Query<(&mut Transform, &Camera3d)>,
 ) {
     let Ok((mut transform, _)) = camera.single_mut() else {

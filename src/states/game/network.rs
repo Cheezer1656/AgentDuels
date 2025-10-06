@@ -29,7 +29,7 @@ enum NetworkPhase {
 #[derive(Resource, Default, Clone, Copy)]
 pub struct PlayerActionsTracker(pub PlayerActions);
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct PacketEvent(Packet);
 
 #[derive(Serialize)]
@@ -58,7 +58,7 @@ impl Plugin for NetworkPlugin {
         app.init_resource::<NetworkState>()
             .init_resource::<PlayerActionsTracker>()
             .init_resource::<OpponentActionsTracker>()
-            .add_event::<PacketEvent>()
+            .add_message::<PacketEvent>()
             .insert_resource(IncomingBuffer(Vec::new()))
             .add_systems(
                 Update,
@@ -151,7 +151,7 @@ struct IncomingBuffer(Vec<u8>);
 fn receive_packets(
     mut buf: ResMut<IncomingBuffer>,
     mut connection: ResMut<GameConnection>,
-    mut packet_ev: EventWriter<PacketEvent>,
+    mut packet_ev: MessageWriter<PacketEvent>,
 ) {
     let mut temp = [0u8; 1024];
     if let Ok(bytes_read) = connection.socket.read(&mut temp) {
@@ -170,7 +170,7 @@ fn receive_packets(
 pub struct OpponentActionsTracker(pub PlayerActions);
 
 fn process_opponent_actions(
-    mut packet_ev: EventReader<PacketEvent>,
+    mut packet_ev: MessageReader<PacketEvent>,
     mut net_state: ResMut<NetworkState>,
     mut opponent_actions: ResMut<OpponentActionsTracker>,
 ) {

@@ -56,7 +56,7 @@ fn setup(mut commands: Commands) {
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                BorderColor(Color::BLACK),
+                BorderColor::all(Color::BLACK),
                 BorderRadius::MAX,
                 BackgroundColor(Color::Srgba(Srgba::GREEN)),
                 children![Text::new("Join Game"),],

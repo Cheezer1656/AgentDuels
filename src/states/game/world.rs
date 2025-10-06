@@ -1,10 +1,5 @@
 use avian3d::prelude::{Collider, RigidBody};
-use bevy::{
-    asset::RenderAssetUsages,
-    platform::collections::HashMap,
-    prelude::*,
-    render::mesh::{Indices, PrimitiveTopology},
-};
+use bevy::{asset::RenderAssetUsages, mesh::{Indices, PrimitiveTopology}, platform::collections::HashMap, prelude::*};
 
 use crate::{AppState, AutoDespawn};
 
