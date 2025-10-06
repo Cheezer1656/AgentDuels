@@ -11,6 +11,8 @@ bevy = "0.16.1"
 blake3 = "1.8.2"
 postcard.workspace = true
 rand.workspace = true
+serde.workspace = true
+serde_json = "1.0.145"
 tokio.workspace = true
 
 [workspace]

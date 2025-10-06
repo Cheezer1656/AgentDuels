@@ -8,7 +8,6 @@ use crate::states::{
         PLAYER_SPEED,
         network::{OpponentActionsTracker, PlayerActionsTracker},
         player::Player,
-        world::{BlockType, ChunkMap},
     },
 };
 
@@ -16,11 +15,11 @@ pub struct GameLoopPlugin;
 
 impl Plugin for GameLoopPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(GameUpdate, (handle_player_input, test_movement));
+        app.add_systems(GameUpdate, apply_player_input);
     }
 }
 
-fn handle_player_input(
+fn apply_player_input(
     mut player_query: Query<(&Player, &mut Transform, &mut AngularVelocity)>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
@@ -58,9 +57,4 @@ fn handle_player_input(
         velocity.0.x = -delta.z;
         velocity.0.z = -delta.x;
     }
-}
-
-fn test_movement(mut actions: ResMut<PlayerActionsTracker>) {
-    actions.0.set(PlayerActions::MOVE_FORWARD);
-    // actions.0.rotation[0] = 0.1;
 }

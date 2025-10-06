@@ -15,7 +15,11 @@ impl Plugin for MainMenuPlugin {
         app.add_systems(OnEnter(AppState::MainMenu), setup)
             .add_systems(
                 Update,
-                (button_press, update_connection_text).run_if(in_state(AppState::MainMenu)),
+                (
+                    button_press,
+                    update_connection_text.run_if(resource_changed::<ControlServer>),
+                )
+                    .run_if(in_state(AppState::MainMenu)),
             );
     }
 }
@@ -78,12 +82,9 @@ fn button_press(
 }
 
 fn update_connection_text(
-    server_query: Query<&ControlServer, Changed<ControlServer>>,
+    server: ResMut<ControlServer>,
     mut text_query: Query<(&mut Text, &mut TextColor), With<ConnectionText>>,
 ) {
-    let Ok(server) = server_query.single() else {
-        return;
-    };
     if let Ok((mut text, mut color)) = text_query.single_mut() {
         if server.client.is_some() {
             text.0 = "Client connected".to_string();

@@ -1,11 +1,12 @@
-use std::io::Read;
+use std::io::{Read, Write};
 
-use crate::client::GameConnection;
+use crate::{client::GameConnection, ControlServer};
 use agentduels_protocol::{
     Packet,
     packets::{PlayerActions, PlayerActionsPacket},
 };
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::states::game::GameUpdate;
 
@@ -31,6 +32,25 @@ pub struct PlayerActionsTracker(pub PlayerActions);
 #[derive(Event)]
 pub struct PacketEvent(Packet);
 
+#[derive(Serialize)]
+pub enum ControlMsgS2C {
+    TickStart {
+        tick: u64,
+        opponent_prev_actions: PlayerActions,
+    }
+}
+
+#[derive(Deserialize)]
+pub enum ControlMsgC2S {
+    MoveForward,
+    MoveBackward,
+    MoveLeft,
+    MoveRight,
+    /// Rotations do not accumulate within a tick; the last one received is used.
+    Rotate(f32, f32),
+    EndTick,
+}
+
 pub struct NetworkPlugin;
 
 impl Plugin for NetworkPlugin {
@@ -48,6 +68,7 @@ impl Plugin for NetworkPlugin {
     }
 }
 
+// TODO - Don't block the main thread while waiting for input
 fn run_game_update(world: &mut World) {
     let net_state = world.resource::<NetworkState>();
     if net_state.phase != NetworkPhase::AwaitingAction {
@@ -55,9 +76,49 @@ fn run_game_update(world: &mut World) {
     }
     let prev_actions = net_state.prev_actions;
     let prev_nonce = net_state.nonce;
+    let tick = net_state.tick;
+
+    let mut actions = world.resource_mut::<PlayerActionsTracker>();
+    actions.0 = PlayerActions::default(); // Reset actions for this tick
+
+    let opp_actions = world.resource::<OpponentActionsTracker>().0;
+
+    let mut control_server = world
+        .resource_mut::<ControlServer>();
+    let stream = control_server
+        .client
+        .as_mut()
+        .unwrap();
+
+    stream.write(serde_json::to_string(&ControlMsgS2C::TickStart {
+        tick: tick,
+        opponent_prev_actions: opp_actions,
+    }).unwrap().as_bytes()).unwrap();
+
+    let mut new_actions = PlayerActions::default();
+    let mut buf = [0; 1024];
+    loop {
+        let Ok(n) = stream.read(&mut buf) else {
+            return;
+        };
+        let Ok(msg) = serde_json::from_slice::<ControlMsgC2S>(&buf[..n]) else {
+            return;
+        };
+        match msg {
+            ControlMsgC2S::MoveForward => new_actions.set(PlayerActions::MOVE_FORWARD),
+            ControlMsgC2S::MoveBackward => new_actions.set(PlayerActions::MOVE_BACKWARD),
+            ControlMsgC2S::MoveLeft => new_actions.set(PlayerActions::MOVE_LEFT),
+            ControlMsgC2S::MoveRight => new_actions.set(PlayerActions::MOVE_RIGHT),
+            ControlMsgC2S::Rotate(x, y) => new_actions.rotation = [x, y],
+            ControlMsgC2S::EndTick => break,
+        }
+        buf.fill(0);
+    }
+
+    let mut actions = world.resource_mut::<PlayerActionsTracker>();
+    actions.0 = new_actions;
 
     world.run_schedule(GameUpdate);
-
     let action = world.resource::<PlayerActionsTracker>().0;
     let mut connection = world.resource_mut::<GameConnection>();
 

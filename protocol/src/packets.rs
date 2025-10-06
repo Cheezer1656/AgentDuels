@@ -10,6 +10,7 @@ pub struct HandshakePacket {
     pub protocol_version: u32,
 }
 
+/// Bitflags representing player actions (Is reset every tick)
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
 pub struct PlayerActions {
     pub bits: u8,

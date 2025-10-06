@@ -19,8 +19,17 @@ enum AppState {
 #[derive(Component)]
 struct AutoDespawn(AppState);
 
+#[derive(Resource)]
+struct ControlServer {
+    listener: TcpListener,
+    client: Option<TcpStream>,
+}
+
 #[tokio::main]
 async fn main() {
+    let listener = TcpListener::bind(CONTROL_ADDR).unwrap();
+    listener.set_nonblocking(true).unwrap();
+
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .insert_resource(AmbientLight {
@@ -29,8 +38,11 @@ async fn main() {
         })
         .insert_state(AppState::MainMenu)
         .add_plugins((MainMenuPlugin, JoiningPlugin, GamePlugin))
-        .add_systems(Startup, create_listener)
-        .add_systems(Update, (handle_connection,))
+        .insert_resource(ControlServer {
+            listener,
+            client: None,
+        })
+        .add_systems(Update, handle_connection)
         .add_systems(OnExit(AppState::Joining), cleanup_state)
         .add_systems(OnExit(AppState::MainMenu), cleanup_state)
         .add_systems(OnExit(AppState::Game), cleanup_state)
@@ -49,27 +61,12 @@ fn cleanup_state(
     }
 }
 
-#[derive(Component)]
-struct ControlServer {
-    listener: TcpListener,
-    client: Option<TcpStream>,
-}
-
-fn create_listener(mut commands: Commands) {
-    let listener = TcpListener::bind(CONTROL_ADDR).unwrap();
-    listener.set_nonblocking(true).unwrap();
-    commands.spawn((ControlServer {
-        listener,
-        client: None,
-    },));
-}
-
-fn handle_connection(mut server_query: Query<&mut ControlServer>) {
-    if let Ok(mut server) = server_query.single_mut() {
-        while let Ok((stream, _)) = server.listener.accept() {
-            if server.client.is_none() {
-                server.client = Some(stream);
-            }
-        }
+fn handle_connection(mut server: ResMut<ControlServer>) {
+    if server.client.is_some() {
+        return;
     }
+    let Ok((stream, _)) = server.listener.accept() else {
+        return;
+    };
+    server.client = Some(stream);
 }
