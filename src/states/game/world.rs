@@ -1,4 +1,4 @@
-use avian3d::prelude::{Collider, RigidBody};
+use avian3d::{parry::{math::Point, na::Vector3, shape::{SharedShape, Voxels}}, prelude::{Collider, Friction, Restitution, RigidBody}};
 use bevy::{asset::RenderAssetUsages, mesh::{Indices, PrimitiveTopology}, platform::collections::HashMap, prelude::*};
 
 use crate::{AppState, AutoDespawn};
@@ -210,15 +210,13 @@ impl Chunk {
 #[derive(Component, Default)]
 pub struct ChunkMap {
     chunks: HashMap<IVec3, Chunk>,
+    collider: Option<Entity>,
 }
 
 impl ChunkMap {
     pub fn insert(&mut self, pos: IVec3, mut chunk: Chunk) {
         chunk.dirty = true;
         self.chunks.insert(pos, chunk);
-    }
-    pub fn get(&self, pos: IVec3) -> Option<&Chunk> {
-        self.chunks.get(&pos)
     }
     pub fn set_block(&mut self, pos: IVec3, block_type: BlockType) -> Result<(), ()> {
         let (chunk_pos, local_pos) = Self::split_pos(pos);
@@ -292,35 +290,65 @@ fn regen_dirty_chunks(
     mut commands: Commands,
     data: Res<WorldPluginData>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut query: Query<&mut ChunkMap, Changed<ChunkMap>>,
+    mut chunk_map: Single<&mut ChunkMap, Changed<ChunkMap>>,
 ) {
-    for mut chunk_map in query.iter_mut() {
-        for (pos, chunk) in chunk_map.chunks.iter_mut() {
-            if chunk.dirty {
-                if let Some(mesh_entity) = chunk.mesh {
-                    commands.entity(mesh_entity).despawn();
+    let mut dirty = false;
+    for (pos, chunk) in chunk_map.chunks.iter_mut() {
+        if chunk.dirty {
+            dirty = true;
+            if let Some(mesh_entity) = chunk.mesh {
+                commands.entity(mesh_entity).despawn();
+            }
+            let mesh = chunk.generate_mesh();
+            if mesh.count_vertices() == 0 {
+                chunk.mesh = None;
+                continue;
+            } else {
+                let mesh_entity = commands
+                    .spawn((
+                        Mesh3d(meshes.add(mesh)),
+                        MeshMaterial3d(data.atlas_material.clone()),
+                        Transform::default().with_translation(pos.as_vec3() * 16.0),
+                        AutoDespawn(AppState::Game),
+                    ))
+                    .id();
+                chunk.mesh = Some(mesh_entity);
+            }
+            // Reset dirty flag after regenerating
+            chunk.dirty = false;
+        }
+    }
+
+    if dirty {
+        let mut points: Vec<Point<i32>> = Vec::new();
+        for (pos, chunk) in chunk_map.chunks.iter() {
+            for i in 0..CHUNK_WIDTH {
+                for j in 0..CHUNK_HEIGHT {
+                    for k in 0..CHUNK_DEPTH {
+                        if chunk.blocks[i][k][j] != BlockType::Air {
+                            points.push(Point::new(
+                                i as i32 + pos.x * CHUNK_WIDTH as i32,
+                                j as i32 + pos.y * CHUNK_HEIGHT as i32,
+                                k as i32 + pos.z * CHUNK_DEPTH as i32,
+                            ));
+                        }
+                    }
                 }
-                let mesh = chunk.generate_mesh();
-                if mesh.count_vertices() == 0 {
-                    chunk.mesh = None;
-                    continue;
-                } else {
-                    let collider = Collider::trimesh_from_mesh(&mesh).unwrap();
-                    let mesh_entity = commands
-                        .spawn((
-                            RigidBody::Static,
-                            collider,
-                            Mesh3d(meshes.add(mesh)),
-                            MeshMaterial3d(data.atlas_material.clone()),
-                            Transform::default().with_translation(pos.as_vec3() * 16.0),
-                            AutoDespawn(AppState::Game),
-                        ))
-                        .id();
-                    chunk.mesh = Some(mesh_entity);
-                }
-                // Reset dirty flag after regenerating
-                chunk.dirty = false;
             }
         }
+
+        let block_shape = 1.0;
+        let voxel_shape = Voxels::new(Vector3::new(block_shape, block_shape, block_shape), &points);
+        let collider_entity = commands
+            .spawn((
+                RigidBody::Static,
+                Collider::from(SharedShape::new(voxel_shape)),
+                Friction::new(0.0),
+                Restitution::new(0.0),
+                Transform::from_xyz(-0.5, -0.5, -0.5),
+                AutoDespawn(AppState::Game),
+            ))
+            .id();
+        chunk_map.collider = Some(collider_entity);
     }
 }

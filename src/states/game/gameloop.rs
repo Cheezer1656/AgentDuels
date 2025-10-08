@@ -1,5 +1,5 @@
 use agentduels_protocol::packets::PlayerActions;
-use avian3d::prelude::AngularVelocity;
+use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
 use crate::states::{
@@ -20,7 +20,7 @@ impl Plugin for GameLoopPlugin {
 }
 
 fn apply_player_input(
-    mut player_query: Query<(&Player, &mut Transform, &mut AngularVelocity)>,
+    mut player_query: Query<(&Player, &mut Transform, &mut LinearVelocity)>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
 ) {
@@ -54,7 +54,7 @@ fn apply_player_input(
         delta.y = 0.0;
         delta *= 20.0;
 
-        velocity.0.x = -delta.z;
-        velocity.0.z = -delta.x;
+        velocity.0.x = delta.x;
+        velocity.0.z = delta.z;
     }
 }

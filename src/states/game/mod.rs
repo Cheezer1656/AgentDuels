@@ -1,6 +1,5 @@
 use avian3d::{
-    PhysicsPlugins,
-    prelude::{AngularVelocity, Collider, LockedAxes, RigidBody},
+    prelude::{Collider, Friction, LockedAxes, PhysicsDebugPlugin, Restitution, RigidBody}, PhysicsPlugins
 };
 use bevy::{
     ecs::schedule::ScheduleLabel,
@@ -39,6 +38,7 @@ impl Plugin for GamePlugin {
                 NetworkPlugin,
                 GameLoopPlugin,
                 PhysicsPlugins::default(),
+                PhysicsDebugPlugin::default(),
             ))
             .add_systems(
                 OnEnter(AppState::Game),
@@ -135,13 +135,14 @@ fn setup(
             RigidBody::Dynamic,
             Collider::cuboid(0.6, 1.8, 0.6),
             LockedAxes::ROTATION_LOCKED,
+            Friction::new(0.0),
+            Restitution::new(0.0),
             Mesh3d(player_mesh.clone()),
             MeshMaterial3d(materials.add(if i == 0 {
                 Color::srgb_u8(237, 28, 36)
             } else {
                 Color::srgb_u8(47, 54, 153)
             })),
-            AngularVelocity(Vec3::new(0.0, 0.0, 0.0)),
             transform,
             AutoDespawn(AppState::Game),
             children![(
