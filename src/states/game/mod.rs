@@ -13,7 +13,7 @@ use crate::{
     states::game::{
         gameloop::GameLoopPlugin,
         network::NetworkPlugin,
-        player::Player,
+        player::PlayerID,
         world::{Chunk, ChunkMap, WorldPlugin},
     },
 };
@@ -131,7 +131,7 @@ fn setup(
         }
 
         commands.spawn((
-            Player::new(i as u16),
+            PlayerID(i as u16),
             RigidBody::Dynamic,
             Collider::cuboid(0.6, 1.8, 0.6),
             LockedAxes::ROTATION_LOCKED,

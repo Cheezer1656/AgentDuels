@@ -7,7 +7,7 @@ use crate::states::{
     game::{
         PLAYER_SPEED,
         network::{OpponentActionsTracker, PlayerActionsTracker},
-        player::Player,
+        player::PlayerID,
     },
 };
 
@@ -20,12 +20,12 @@ impl Plugin for GameLoopPlugin {
 }
 
 fn apply_player_input(
-    mut player_query: Query<(&Player, &mut Transform, &mut LinearVelocity)>,
+    mut player_query: Query<(&PlayerID, &mut Transform, &mut LinearVelocity)>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
 ) {
     for (player, mut transform, mut velocity) in player_query.iter_mut() {
-        let actions = if player.id == 0 {
+        let actions = if player.0 == 0 {
             actions.0
         } else {
             opp_actions.0
