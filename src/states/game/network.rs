@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 
-use crate::{client::GameConnection, ControlMsgC2S, ControlMsgS2C, ControlServer};
+use crate::{ControlMsgC2S, ControlMsgS2C, ControlServer, client::GameConnection};
 use agentduels_protocol::{
     Packet,
     packets::{PlayerActions, PlayerActionsPacket},
@@ -43,7 +43,12 @@ impl Plugin for NetworkPlugin {
             .insert_resource(IncomingBuffer(Vec::new()))
             .add_systems(
                 Update,
-                (run_game_update, receive_packets, process_opponent_actions, send_control_start)
+                (
+                    run_game_update,
+                    receive_packets,
+                    process_opponent_actions,
+                    send_control_start,
+                )
                     .run_if(in_state(crate::AppState::Game)),
             );
     }
@@ -58,9 +63,15 @@ fn run_game_update(world: &mut World) {
     let prev_actions = net_state.prev_actions;
     let prev_nonce = net_state.nonce;
 
-
-    let mut message_buffer = world.resource::<ControlServer>().message_buffer.lock().unwrap();
-    let Some(end_idx) = message_buffer.iter().position(|m| *m == ControlMsgC2S::EndTick) else {
+    let mut message_buffer = world
+        .resource::<ControlServer>()
+        .message_buffer
+        .lock()
+        .unwrap();
+    let Some(end_idx) = message_buffer
+        .iter()
+        .position(|m| *m == ControlMsgC2S::EndTick)
+    else {
         // We haven't received the end of the tick yet
         return;
     };
@@ -167,19 +178,26 @@ fn process_opponent_actions(
     }
 }
 
-fn send_control_start(mut control_server: ResMut<ControlServer>, mut net_state: ResMut<NetworkState>, opponent_actions: Res<OpponentActionsTracker>) {
+fn send_control_start(
+    mut control_server: ResMut<ControlServer>,
+    mut net_state: ResMut<NetworkState>,
+    opponent_actions: Res<OpponentActionsTracker>,
+) {
     if net_state.phase != NetworkPhase::StartingTick {
         return;
     }
     net_state.phase = NetworkPhase::AwaitingAction;
 
-    let stream = control_server
-        .client
-        .as_mut()
-        .unwrap();
+    let stream = control_server.client.as_mut().unwrap();
 
-    stream.write(serde_json::to_string(&ControlMsgS2C::TickStart {
-        tick: net_state.tick,
-        opponent_prev_actions: opponent_actions.0,
-    }).unwrap().as_bytes()).unwrap();
+    stream
+        .write(
+            serde_json::to_string(&ControlMsgS2C::TickStart {
+                tick: net_state.tick,
+                opponent_prev_actions: opponent_actions.0,
+            })
+            .unwrap()
+            .as_bytes(),
+        )
+        .unwrap();
 }

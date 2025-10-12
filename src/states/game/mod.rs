@@ -1,5 +1,6 @@
 use avian3d::{
-    prelude::{Collider, Friction, LockedAxes, PhysicsDebugPlugin, Restitution, RigidBody}, PhysicsPlugins
+    PhysicsPlugins,
+    prelude::{Collider, Friction, LockedAxes, PhysicsDebugPlugin, Restitution, RigidBody},
 };
 use bevy::{
     ecs::schedule::ScheduleLabel,

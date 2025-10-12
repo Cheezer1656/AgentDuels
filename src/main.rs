@@ -1,4 +1,9 @@
-use std::{io::Read, net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream}, sync::{Arc, Mutex}, thread};
+use std::{
+    io::Read,
+    net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream},
+    sync::{Arc, Mutex},
+    thread,
+};
 
 use agentduels_protocol::packets::PlayerActions;
 use bevy::prelude::*;
@@ -26,7 +31,7 @@ pub enum ControlMsgS2C {
     TickStart {
         tick: u64,
         opponent_prev_actions: PlayerActions,
-    }
+    },
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -101,7 +106,10 @@ fn handle_connection(mut server: ResMut<ControlServer>) {
                 println!("Control connection closed");
                 break;
             }
-            for msg in serde_json::Deserializer::from_slice(&buf[..n]).into_iter::<ControlMsgC2S>().flatten() {
+            for msg in serde_json::Deserializer::from_slice(&buf[..n])
+                .into_iter::<ControlMsgC2S>()
+                .flatten()
+            {
                 message_buffer.lock().unwrap().push(msg);
             }
             buf.fill(0);

@@ -1,5 +1,17 @@
-use avian3d::{parry::{math::Point, na::Vector3, shape::{SharedShape, Voxels}}, prelude::{Collider, Friction, Restitution, RigidBody}};
-use bevy::{asset::RenderAssetUsages, mesh::{Indices, PrimitiveTopology}, platform::collections::HashMap, prelude::*};
+use avian3d::{
+    parry::{
+        math::Point,
+        na::Vector3,
+        shape::{SharedShape, Voxels},
+    },
+    prelude::{Collider, Friction, Restitution, RigidBody},
+};
+use bevy::{
+    asset::RenderAssetUsages,
+    mesh::{Indices, PrimitiveTopology},
+    platform::collections::HashMap,
+    prelude::*,
+};
 
 use crate::{AppState, AutoDespawn};
 
