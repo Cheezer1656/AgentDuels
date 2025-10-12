@@ -68,9 +68,6 @@ fn run_game_update(world: &mut World) {
     message_buffer.drain(..=end_idx);
     drop(message_buffer);
 
-    let tick = net_state.tick;
-    println!("({}) Messages: {:?}", tick, messages);
-
     let mut new_actions = PlayerActions::default();
     for msg in messages {
         match msg {
