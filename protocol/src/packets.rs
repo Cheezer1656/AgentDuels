@@ -14,7 +14,7 @@ pub struct HandshakePacket {
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
 pub struct PlayerActions {
     pub bits: u8,
-    pub rotation: [f32; 2], // yaw, pitch
+    pub rotation: [f32; 2], // yaw, pitch (in radians)
 }
 
 impl PlayerActions {

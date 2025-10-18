@@ -3,12 +3,9 @@ use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
 use crate::states::{
-    GameUpdate,
     game::{
-        PLAYER_SPEED,
-        network::{OpponentActionsTracker, PlayerActionsTracker},
-        player::PlayerID,
-    },
+        network::{OpponentActionsTracker, PlayerActionsTracker}, player::{PlayerHead, PlayerID}, PLAYER_SPEED
+    }, GameUpdate
 };
 
 pub struct GameLoopPlugin;
@@ -20,11 +17,12 @@ impl Plugin for GameLoopPlugin {
 }
 
 fn apply_player_input(
-    mut player_query: Query<(&PlayerID, &mut Transform, &mut LinearVelocity)>,
+    mut player_query: Query<(Entity, &PlayerID, &mut Transform, &mut LinearVelocity)>,
+    mut player_head_query: Query<(&mut Transform, &ChildOf), (With<PlayerHead>, Without<PlayerID>)>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
 ) {
-    for (player, mut transform, mut velocity) in player_query.iter_mut() {
+    for (player_entity, player, mut transform, mut velocity) in player_query.iter_mut() {
         let actions = if player.0 == 0 {
             actions.0
         } else {
@@ -48,7 +46,17 @@ fn apply_player_input(
 
         let yaw = Quat::from_axis_angle(Vec3::Y, actions.rotation[0]);
         let pitch = Quat::from_axis_angle(Vec3::X, actions.rotation[1]);
-        transform.rotation = yaw * transform.rotation * pitch;
+        for (mut head_transform, parent) in player_head_query.iter_mut() {
+            if parent.0 != player_entity {
+                continue;
+            }
+            head_transform.rotation = Quat::from_rotation_y(-std::f32::consts::PI / 2.0) * pitch;
+        }
+
+        transform.rotation = yaw;
+        if player.0 == 0 {
+            transform.rotation *= Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI);
+        }
 
         delta = transform.rotation.mul_vec3(delta);
         delta.y = 0.0;

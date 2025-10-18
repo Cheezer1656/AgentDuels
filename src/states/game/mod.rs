@@ -14,7 +14,7 @@ use crate::{
     states::game::{
         gameloop::GameLoopPlugin,
         network::NetworkPlugin,
-        player::PlayerID,
+        player::{PlayerHead, PlayerID},
         world::{Chunk, ChunkMap, WorldPlugin},
     },
 };
@@ -122,12 +122,14 @@ fn setup(
 
     commands.spawn((chunkmap, AutoDespawn(AppState::Game)));
 
-    let player_mesh = meshes.add(Cuboid::new(0.6, 1.8, 0.6));
-    let player_direction_mesh = meshes.add(Cuboid::new(1.0, 0.1, 0.1));
+    let player_mesh = meshes.add(Cuboid::new(0.6, 1.3, 0.6));
+    let player_head_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
+    let player_direction_mesh = meshes.add(Cuboid::new(0.1, 0.1, 1.0));
 
     for i in 0..2_i32 {
         let mut transform = Transform::from_xyz((i * 2 - 1) as f32 * -21.0, 1.4, 0.0);
         if i == 0 {
+            // Player 0 faces -X, Player 1 faces +X
             transform.rotate_y(std::f32::consts::PI);
         }
 
@@ -138,19 +140,31 @@ fn setup(
             LockedAxes::ROTATION_LOCKED,
             Friction::new(0.0),
             Restitution::new(0.0),
-            Mesh3d(player_mesh.clone()),
-            MeshMaterial3d(materials.add(if i == 0 {
-                Color::srgb_u8(237, 28, 36)
-            } else {
-                Color::srgb_u8(47, 54, 153)
-            })),
+            Visibility::default(),
             transform,
             AutoDespawn(AppState::Game),
-            children![(
-                Mesh3d(player_direction_mesh.clone()),
-                MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
-                Transform::from_xyz(0.3, 0.7, 0.0)
-            )],
+            children![
+                (
+                    Mesh3d(player_mesh.clone()),
+                    MeshMaterial3d(materials.add(if i == 0 {
+                        Color::srgb_u8(237, 28, 36)
+                    } else {
+                        Color::srgb_u8(47, 54, 153)
+                    })),
+                    Transform::from_xyz(0.0, -0.25, 0.0),
+                ),
+                (
+                    PlayerHead,
+                    Mesh3d(player_head_mesh.clone()),
+                    MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
+                    Transform::from_xyz(0.0, 0.65, 0.0).with_rotation(Quat::from_rotation_y(-std::f32::consts::PI / 2.0)),
+                    children![(
+                        Mesh3d(player_direction_mesh.clone()),
+                        MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
+                        Transform::from_xyz(0.0, 0.0, -0.25)
+                    )],
+                )
+            ],
         ));
     }
 }

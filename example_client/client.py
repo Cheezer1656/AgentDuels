@@ -20,6 +20,7 @@ while True:
                     msg = msg["TickStart"]
                     if ticks < 20:
                         s.send(b'{"MoveForward": null}')
+                    s.send(f'{{"Rotate": [-0.2, -1.0]}}'.encode())
                     s.send(b'{"EndTick": null}')
                     print("Sent actions")
     except ConnectionRefusedError:
