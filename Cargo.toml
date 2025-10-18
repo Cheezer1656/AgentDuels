@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 agentduels_protocol.workspace = true
 anyhow.workspace = true
-avian3d = { git = "https://github.com/Cheezer1656/avian" }
+avian3d = "0.4.0"
 bevy = "0.17.2"
 blake3 = "1.8.2"
 postcard.workspace = true

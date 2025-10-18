@@ -603,8 +603,9 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "avian3d"
-version = "0.4.0-dev"
-source = "git+https://github.com/Cheezer1656/avian#56a388b8ee5fef07e7a31d125a22b64a447f6841"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56ce9b78f7af428b9c74f95f5e1bca4ffeae0e0e70e7a3b256bd606b77d6031e"
 dependencies = [
  "approx",
  "avian_derive",
@@ -629,7 +630,8 @@ dependencies = [
 [[package]]
 name = "avian_derive"
 version = "0.2.2"
-source = "git+https://github.com/Cheezer1656/avian#56a388b8ee5fef07e7a31d125a22b64a447f6841"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12b257f601a1535e0d4a7a7796f535e3a13de62fd422b16dff7c14d27f0d4048"
 dependencies = [
  "proc-macro-error2",
  "proc-macro2",
@@ -1091,8 +1093,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_heavy"
-version = "0.2.0"
-source = "git+https://github.com/Jondolf/bevy_heavy#f566d3214c4774b2617f4b95378b1c0ee4cc9e7e"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7c0651daa331c326e1460cb19ee5bf497ed2810982dafca8784db44725f5c4b"
 dependencies = [
  "bevy_math",
  "bevy_reflect",
@@ -1739,8 +1742,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_transform_interpolation"
-version = "0.2.0"
-source = "git+https://github.com/Jondolf/bevy_transform_interpolation#87d5627c11471d8eda78b5bee7c47a6e4df52537"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "284738382605476667bbe80cf0959f4dffb61adbdb0149e22e67f4dbf97a5bc2"
 dependencies = [
  "bevy",
 ]
@@ -3108,7 +3112,8 @@ dependencies = [
 [[package]]
 name = "glam_matrix_extras"
 version = "0.1.0"
-source = "git+https://github.com/Jondolf/glam_matrix_extras#6e27652b13ea7fe68e939e8a4d48ed8825e5d910"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a321595865557fc1ec990c8eb289b25f0cb1d058997cc0034a17f507704f3183"
 dependencies = [
  "bevy_reflect",
  "glam 0.30.8",
