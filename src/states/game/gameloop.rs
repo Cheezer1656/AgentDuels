@@ -45,7 +45,7 @@ fn apply_player_input(
         }
 
         let yaw = Quat::from_axis_angle(Vec3::Y, actions.rotation[0]);
-        let pitch = Quat::from_axis_angle(Vec3::X, actions.rotation[1]);
+        let pitch = Quat::from_axis_angle(Vec3::X, actions.rotation[1].clamp(-std::f32::consts::FRAC_PI_2 + 0.01, std::f32::consts::FRAC_PI_2 - 0.01));
         for (mut head_transform, parent) in player_head_query.iter_mut() {
             if parent.0 != player_entity {
                 continue;
