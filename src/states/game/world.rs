@@ -4,7 +4,7 @@ use avian3d::{
         na::Vector3,
         shape::{SharedShape, Voxels},
     },
-    prelude::{Collider, Friction, Restitution, RigidBody},
+    prelude::{Collider, CollisionLayers, Friction, Restitution, RigidBody},
 };
 use bevy::{
     asset::RenderAssetUsages,
@@ -13,7 +13,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{AppState, AutoDespawn};
+use crate::{states::CollisionLayer, AppState, AutoDespawn};
 
 const CHUNK_WIDTH: usize = 16;
 const CHUNK_HEIGHT: usize = 16;
@@ -355,6 +355,7 @@ fn regen_dirty_chunks(
             .spawn((
                 RigidBody::Static,
                 Collider::from(SharedShape::new(voxel_shape)),
+                CollisionLayers::new(CollisionLayer::World, [CollisionLayer::Entity]),
                 Friction::new(0.0),
                 Restitution::new(0.0),
                 Transform::from_xyz(-0.5, -0.5, -0.5),

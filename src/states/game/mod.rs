@@ -1,6 +1,5 @@
 use avian3d::{
-    PhysicsPlugins,
-    prelude::{Collider, Friction, LockedAxes, PhysicsDebugPlugin, Restitution, RigidBody},
+    prelude::{Collider, CollisionLayers, Friction, LockedAxes, PhysicsDebugPlugin, PhysicsLayer, Restitution, RigidBody}, PhysicsPlugins
 };
 use bevy::{
     ecs::schedule::ScheduleLabel,
@@ -28,6 +27,13 @@ const PLAYER_SPEED: f32 = 0.1;
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Clone, Debug)]
 pub struct GameUpdate;
+
+#[derive(PhysicsLayer, Default)]
+pub enum CollisionLayer {
+    #[default]
+    Entity,
+    World,
+}
 
 pub struct GamePlugin;
 
@@ -116,10 +122,6 @@ fn setup(
         }
     }
 
-    chunkmap
-        .set_block((0, 1, 0).into(), world::BlockType::WhiteBlock)
-        .unwrap();
-
     commands.spawn((chunkmap, AutoDespawn(AppState::Game)));
 
     let player_mesh = meshes.add(Cuboid::new(0.6, 1.3, 0.6));
@@ -137,6 +139,7 @@ fn setup(
             PlayerID(i as u16),
             RigidBody::Dynamic,
             Collider::cuboid(0.6, 1.8, 0.6),
+            CollisionLayers::new(CollisionLayer::Entity, [CollisionLayer::World]),
             LockedAxes::ROTATION_LOCKED,
             Friction::new(0.0),
             Restitution::new(0.0),
