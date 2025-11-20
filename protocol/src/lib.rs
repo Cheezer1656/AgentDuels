@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 
 pub mod packets;
 
-pub use packets::PlayerActions;
 pub use packets::Item;
+pub use packets::PlayerActions;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Packet {

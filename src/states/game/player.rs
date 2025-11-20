@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use bevy::prelude::*;
 use agentduels_protocol::Item;
+use bevy::prelude::*;
+use std::collections::HashMap;
 
 /// ID 0 = self, ID 1 = opponent
 #[derive(Component)]
@@ -20,14 +20,15 @@ impl Inventory {
     pub fn get_count(&self, item: Item) -> u16 {
         *self.contents.get(&item).unwrap_or(&0)
     }
-    
+
     pub fn add_item(&mut self, item: Item, amount: u16) {
         *self.contents.entry(item).or_insert(0) += amount;
         self.changed = true;
     }
 
     pub fn remove_item(&mut self, item: Item, amount: u16) {
-        *self.contents.entry(item).or_insert(0) = (self.contents.get(&item).unwrap_or(&0) - amount).max(0);
+        *self.contents.entry(item).or_insert(0) =
+            (self.contents.get(&item).unwrap_or(&0) - amount).max(0);
     }
 
     pub fn select_item(&mut self, item: Item) {

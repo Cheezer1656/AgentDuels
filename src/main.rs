@@ -1,13 +1,13 @@
+use agentduels_protocol::{Item, PlayerActions};
+use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
+use std::process::exit;
 use std::{
     io::Read,
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream},
     sync::{Arc, Mutex},
     thread,
 };
-use std::process::exit;
-use agentduels_protocol::{Item, PlayerActions};
-use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use crate::states::{GamePlugin, JoiningPlugin, MainMenuPlugin};
 

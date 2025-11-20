@@ -1,5 +1,9 @@
 use avian3d::{
-    prelude::{Collider, CollisionLayers, Friction, LockedAxes, PhysicsDebugPlugin, PhysicsLayer, Restitution, RigidBody}, PhysicsPlugins
+    PhysicsPlugins,
+    prelude::{
+        Collider, CollisionLayers, Friction, LockedAxes, PhysicsDebugPlugin, PhysicsLayer,
+        Restitution, RigidBody,
+    },
 };
 use bevy::{
     ecs::schedule::ScheduleLabel,
@@ -8,6 +12,7 @@ use bevy::{
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
 
+use crate::states::game::player::Inventory;
 use crate::{
     AppState, AutoDespawn,
     states::game::{
@@ -17,7 +22,6 @@ use crate::{
         world::{Chunk, ChunkMap, WorldPlugin},
     },
 };
-use crate::states::game::player::Inventory;
 
 mod gameloop;
 mod network;
@@ -162,7 +166,8 @@ fn setup(
                     PlayerHead,
                     Mesh3d(player_head_mesh.clone()),
                     MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
-                    Transform::from_xyz(0.0, 0.65, 0.0).with_rotation(Quat::from_rotation_y(-std::f32::consts::PI / 2.0)),
+                    Transform::from_xyz(0.0, 0.65, 0.0)
+                        .with_rotation(Quat::from_rotation_y(-std::f32::consts::PI / 2.0)),
                     children![(
                         Mesh3d(player_direction_mesh.clone()),
                         MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),

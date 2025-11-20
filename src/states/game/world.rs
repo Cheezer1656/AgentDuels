@@ -13,7 +13,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{states::CollisionLayer, AppState, AutoDespawn};
+use crate::{AppState, AutoDespawn, states::CollisionLayer};
 
 const CHUNK_WIDTH: usize = 16;
 const CHUNK_HEIGHT: usize = 16;
@@ -320,7 +320,8 @@ fn regen_dirty_chunks(
                     .spawn((
                         Mesh3d(meshes.add(mesh)),
                         MeshMaterial3d(data.atlas_material.clone()),
-                        Transform::default().with_translation(pos.as_vec3() * 16.0 + Vec3::splat(0.5)),
+                        Transform::default()
+                            .with_translation(pos.as_vec3() * 16.0 + Vec3::splat(0.5)),
                         AutoDespawn(AppState::Game),
                     ))
                     .id();

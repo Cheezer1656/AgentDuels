@@ -1,5 +1,5 @@
-use std::hash::Hash;
 use serde::{Deserialize, Serialize};
+use std::hash::Hash;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MatchIDPacket {
@@ -31,7 +31,21 @@ pub struct PlayerActions {
 
 impl PlayerActions {
     pub fn as_bytes(self) -> Vec<u8> {
-        self.bits.to_le_bytes().iter().chain(self.rotation[0].to_le_bytes().iter()).chain(self.rotation[1].to_le_bytes().iter()).chain([if let Some(item) = self.item_change { item as u8 } else { 0 }].iter()).map(|b| *b).collect()
+        self.bits
+            .to_le_bytes()
+            .iter()
+            .chain(self.rotation[0].to_le_bytes().iter())
+            .chain(self.rotation[1].to_le_bytes().iter())
+            .chain(
+                [if let Some(item) = self.item_change {
+                    item as u8
+                } else {
+                    0
+                }]
+                .iter(),
+            )
+            .map(|b| *b)
+            .collect()
     }
 
     pub const MOVE_FORWARD: u16 = 1 << 0;

@@ -2,19 +2,29 @@ use agentduels_protocol::{Item, PlayerActions};
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
-use crate::states::{
-    game::{
-        network::{OpponentActionsTracker, PlayerActionsTracker}, player::{PlayerHead, PlayerID}, PLAYER_SPEED
-    }, GameUpdate
-};
 use crate::states::game::player::Inventory;
 use crate::states::game::world::{BlockType, ChunkMap};
+use crate::states::{
+    GameUpdate,
+    game::{
+        PLAYER_SPEED,
+        network::{OpponentActionsTracker, PlayerActionsTracker},
+        player::{PlayerHead, PlayerID},
+    },
+};
 
 pub struct GameLoopPlugin;
 
 impl Plugin for GameLoopPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(GameUpdate, (change_item_in_inv, move_player, place_block.after(change_item_in_inv).after(move_player)));
+        app.add_systems(
+            GameUpdate,
+            (
+                change_item_in_inv,
+                move_player,
+                place_block.after(change_item_in_inv).after(move_player),
+            ),
+        );
     }
 }
 
@@ -64,7 +74,13 @@ fn move_player(
         }
 
         let yaw = Quat::from_axis_angle(Vec3::Y, actions.rotation[0]);
-        let pitch = Quat::from_axis_angle(Vec3::X, actions.rotation[1].clamp(-std::f32::consts::FRAC_PI_2 + 0.01, std::f32::consts::FRAC_PI_2 - 0.01));
+        let pitch = Quat::from_axis_angle(
+            Vec3::X,
+            actions.rotation[1].clamp(
+                -std::f32::consts::FRAC_PI_2 + 0.01,
+                std::f32::consts::FRAC_PI_2 - 0.01,
+            ),
+        );
         for (mut head_transform, parent) in player_head_query.iter_mut() {
             if parent.0 != player_entity {
                 continue;
@@ -104,7 +120,10 @@ fn place_block(
         };
         if actions.is_set(PlayerActions::PLACE_BLOCK) {
             if inv.get_selected_item() == Item::Block && inv.get_count(Item::Block) > 0 {
-                let Some((head_transform, _)) = head_query.iter().find(|(_, parent)| parent.0 == player_entity) else {
+                let Some((head_transform, _)) = head_query
+                    .iter()
+                    .find(|(_, parent)| parent.0 == player_entity)
+                else {
                     continue;
                 };
                 let origin = transform.translation + Vec3::new(0.0, -0.9 + 1.6, 0.0); // -half player height + eye height
@@ -115,7 +134,10 @@ fn place_block(
                     commands.spawn((
                         Mesh3d(meshes.add(Cuboid::new(0.05, 0.05, 0.05))),
                         MeshMaterial3d(materials.add(Color::srgb_u8(243, 255, 255))),
-                        Transform::from_translation(origin + head_transform.rotation().mul_vec3(-Vec3::Z) * (i as f32 * 0.1)),
+                        Transform::from_translation(
+                            origin
+                                + head_transform.rotation().mul_vec3(-Vec3::Z) * (i as f32 * 0.1),
+                        ),
                     ));
                 }
 
@@ -162,10 +184,20 @@ fn place_block(
                         Vec3::new(0.0, -step.y, 0.0)
                     } else {
                         Vec3::new(0.0, 0.0, -step.z)
-                    }).normalize();
+                    })
+                    .normalize();
 
                     let block_pos = (floored_pos + face).as_ivec3();
-                    chunk_map.set_block(block_pos, if player_id.0 == 0 { BlockType::RedBlock } else { BlockType::BlueBlock }).unwrap();
+                    chunk_map
+                        .set_block(
+                            block_pos,
+                            if player_id.0 == 0 {
+                                BlockType::RedBlock
+                            } else {
+                                BlockType::BlueBlock
+                            },
+                        )
+                        .unwrap();
                 }
             }
         }
