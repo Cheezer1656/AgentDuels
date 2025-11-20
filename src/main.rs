@@ -4,8 +4,8 @@ use std::{
     sync::{Arc, Mutex},
     thread,
 };
-
-use agentduels_protocol::packets::PlayerActions;
+use std::process::exit;
+use agentduels_protocol::{Item, PlayerActions};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +42,8 @@ pub enum ControlMsgC2S {
     MoveRight,
     /// Rotations do not accumulate within a tick; the last one received is used.
     Rotate(f32, f32),
+    SelectItem(Item),
+    PlaceBlock,
     EndTick,
 }
 

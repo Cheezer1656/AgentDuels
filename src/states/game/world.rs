@@ -320,7 +320,7 @@ fn regen_dirty_chunks(
                     .spawn((
                         Mesh3d(meshes.add(mesh)),
                         MeshMaterial3d(data.atlas_material.clone()),
-                        Transform::default().with_translation(pos.as_vec3() * 16.0),
+                        Transform::default().with_translation(pos.as_vec3() * 16.0 + Vec3::splat(0.5)),
                         AutoDespawn(AppState::Game),
                     ))
                     .id();
@@ -358,7 +358,7 @@ fn regen_dirty_chunks(
                 CollisionLayers::new(CollisionLayer::World, [CollisionLayer::Entity]),
                 Friction::new(0.0),
                 Restitution::new(0.0),
-                Transform::from_xyz(-0.5, -0.5, -0.5),
+                Transform::from_xyz(0.0, 0.0, 0.0),
                 AutoDespawn(AppState::Game),
             ))
             .id();

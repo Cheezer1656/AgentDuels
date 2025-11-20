@@ -17,6 +17,7 @@ use crate::{
         world::{Chunk, ChunkMap, WorldPlugin},
     },
 };
+use crate::states::game::player::Inventory;
 
 mod gameloop;
 mod network;
@@ -52,7 +53,7 @@ impl Plugin for GamePlugin {
                 (replace_camera, set_bg, setup, cursor_grab),
             )
             .add_systems(OnExit(AppState::Game), cursor_ungrab)
-            .add_systems(Update, move_cam);
+            .add_systems(Update, (move_cam).run_if(in_state(AppState::Game)));
     }
 }
 
@@ -129,7 +130,7 @@ fn setup(
     let player_direction_mesh = meshes.add(Cuboid::new(0.1, 0.1, 1.0));
 
     for i in 0..2_i32 {
-        let mut transform = Transform::from_xyz((i * 2 - 1) as f32 * -21.0, 1.4, 0.0);
+        let mut transform = Transform::from_xyz((i * 2 - 1) as f32 * -21.5, 1.9, 0.5);
         if i == 0 {
             // Player 0 faces -X, Player 1 faces +X
             transform.rotate_y(std::f32::consts::PI);
@@ -137,6 +138,7 @@ fn setup(
 
         commands.spawn((
             PlayerID(i as u16),
+            Inventory::default(),
             RigidBody::Dynamic,
             Collider::cuboid(0.6, 1.8, 0.6),
             CollisionLayers::new(CollisionLayer::Entity, [CollisionLayer::World]),

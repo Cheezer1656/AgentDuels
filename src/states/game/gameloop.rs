@@ -1,4 +1,4 @@
-use agentduels_protocol::packets::PlayerActions;
+use agentduels_protocol::{Item, PlayerActions};
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
@@ -7,23 +7,42 @@ use crate::states::{
         network::{OpponentActionsTracker, PlayerActionsTracker}, player::{PlayerHead, PlayerID}, PLAYER_SPEED
     }, GameUpdate
 };
+use crate::states::game::player::Inventory;
+use crate::states::game::world::{BlockType, ChunkMap};
 
 pub struct GameLoopPlugin;
 
 impl Plugin for GameLoopPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(GameUpdate, apply_player_input);
+        app.add_systems(GameUpdate, (change_item_in_inv, move_player, place_block.after(change_item_in_inv).after(move_player)));
     }
 }
 
-fn apply_player_input(
+fn change_item_in_inv(
+    mut player_query: Query<(&PlayerID, &mut Inventory)>,
+    actions: Res<PlayerActionsTracker>,
+    opp_actions: Res<OpponentActionsTracker>,
+) {
+    for (player_id, mut inventory) in player_query.iter_mut() {
+        let actions = if player_id.0 == 0 {
+            actions.0
+        } else {
+            opp_actions.0
+        };
+        if let Some(item) = actions.item_change {
+            inventory.select_item(item);
+        }
+    }
+}
+
+fn move_player(
     mut player_query: Query<(Entity, &PlayerID, &mut Transform, &mut LinearVelocity)>,
     mut player_head_query: Query<(&mut Transform, &ChildOf), (With<PlayerHead>, Without<PlayerID>)>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
 ) {
-    for (player_entity, player, mut transform, mut velocity) in player_query.iter_mut() {
-        let actions = if player.0 == 0 {
+    for (player_entity, player_id, mut transform, mut velocity) in player_query.iter_mut() {
+        let actions = if player_id.0 == 0 {
             actions.0
         } else {
             opp_actions.0
@@ -54,7 +73,7 @@ fn apply_player_input(
         }
 
         transform.rotation = yaw;
-        if player.0 == 0 {
+        if player_id.0 == 0 {
             transform.rotation *= Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI);
         }
 
@@ -64,5 +83,91 @@ fn apply_player_input(
 
         velocity.0.x = delta.x;
         velocity.0.z = delta.z;
+    }
+}
+
+fn place_block(
+    player_query: Query<(Entity, &PlayerID, &Inventory, &Transform)>,
+    head_query: Query<(&GlobalTransform, &ChildOf), With<PlayerHead>>,
+    actions: Res<PlayerActionsTracker>,
+    opp_actions: Res<OpponentActionsTracker>,
+    mut chunk_map: Single<&mut ChunkMap>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for (player_entity, player_id, inv, transform) in player_query.iter() {
+        let actions = if player_id.0 == 0 {
+            actions.0
+        } else {
+            opp_actions.0
+        };
+        if actions.is_set(PlayerActions::PLACE_BLOCK) {
+            if inv.get_selected_item() == Item::Block && inv.get_count(Item::Block) > 0 {
+                let Some((head_transform, _)) = head_query.iter().find(|(_, parent)| parent.0 == player_entity) else {
+                    continue;
+                };
+                let origin = transform.translation + Vec3::new(0.0, -0.9 + 1.6, 0.0); // -half player height + eye height
+                let mut pos = origin;
+                let dir_inv = 1.0 / head_transform.rotation().mul_vec3(-Vec3::Z);
+
+                for i in 0..50 {
+                    commands.spawn((
+                        Mesh3d(meshes.add(Cuboid::new(0.05, 0.05, 0.05))),
+                        MeshMaterial3d(materials.add(Color::srgb_u8(243, 255, 255))),
+                        Transform::from_translation(origin + head_transform.rotation().mul_vec3(-Vec3::Z) * (i as f32 * 0.1)),
+                    ));
+                }
+
+                let step = dir_inv.map(|a| a.signum());
+                let select = dir_inv.map(|a| 0.5 + 0.5 * a.signum());
+                let mut found = false;
+                loop {
+                    if chunk_map.get_block(pos.floor().as_ivec3()) != BlockType::Air {
+                        found = true;
+                        break;
+                    } else if (pos - origin).length_squared() > 5.0 * 5.0 {
+                        break;
+                    }
+
+                    let planes = pos.floor() + select;
+                    let t = (planes - origin) * dir_inv;
+
+                    if t.x < t.y {
+                        if t.x < t.z {
+                            pos.x += step.x;
+                        } else {
+                            pos.z += step.z;
+                        }
+                    } else {
+                        if t.y < t.z {
+                            pos.y += step.y;
+                        } else {
+                            pos.z += step.z;
+                        }
+                    }
+                }
+
+                if found {
+                    let floored_pos = pos.floor();
+
+                    let t1 = (floored_pos - origin) * dir_inv;
+                    let t2 = (floored_pos + Vec3::splat(1.0) - origin) * dir_inv;
+                    let t_min = t1.min(t2);
+                    let t_hit = t_min.x.max(t_min.y).max(t_min.z);
+
+                    let face = (if t_hit == t_min.x {
+                        Vec3::new(-step.x, 0.0, 0.0)
+                    } else if t_hit == t_min.y {
+                        Vec3::new(0.0, -step.y, 0.0)
+                    } else {
+                        Vec3::new(0.0, 0.0, -step.z)
+                    }).normalize();
+
+                    let block_pos = (floored_pos + face).as_ivec3();
+                    chunk_map.set_block(block_pos, if player_id.0 == 0 { BlockType::RedBlock } else { BlockType::BlueBlock }).unwrap();
+                }
+            }
+        }
     }
 }

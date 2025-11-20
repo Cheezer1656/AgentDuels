@@ -1,6 +1,6 @@
 import json
 from socket import AF_INET, socket
-from time import sleep
+from time import sleep, time
 
 while True:
     ticks = 0
@@ -8,6 +8,7 @@ while True:
         with socket(AF_INET) as s:
             s.connect(("127.0.0.1", 8082))
             print("Connected!")
+            start = time()
             while True:
                 response = s.recv(1024)
                 if response == b"":
@@ -18,13 +19,22 @@ while True:
                 if next(iter(msg)) == "TickStart":
                     ticks += 1
                     msg = msg["TickStart"]
-                    if ticks < 20:
-                        s.send(b'{"MoveForward": null}')
-                    s.send(f'{{"Rotate": [-0.2, -1.0]}}'.encode())
+                    if ticks == 1:
+                        s.send(b'{"SelectItem": "Block"}')
+                    if ticks <= 2:
+                        s.send(f'{{"Rotate": [1.5707963, -0.6]}}'.encode())
+                    else:
+                        s.send(f'{{"Rotate": [1.5707963, -0.3]}}'.encode())
+                    if ticks == 2 or ticks == 4:
+                        s.send(b'{"PlaceBlock": null}')
+#                     s.send(b'{"MoveForward": null}')
                     s.send(b'{"EndTick": null}')
                     print("Sent actions")
     except ConnectionRefusedError:
         pass
     except ConnectionResetError:
         pass
+    except KeyboardInterrupt:
+        print(ticks/(time()-start))
+        break
     sleep(1)

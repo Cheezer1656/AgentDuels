@@ -87,6 +87,8 @@ fn run_game_update(world: &mut World) {
             ControlMsgC2S::MoveLeft => new_actions.set(PlayerActions::MOVE_LEFT),
             ControlMsgC2S::MoveRight => new_actions.set(PlayerActions::MOVE_RIGHT),
             ControlMsgC2S::Rotate(x, y) => new_actions.rotation = [x, y],
+            ControlMsgC2S::SelectItem(item) => new_actions.item_change = Some(item),
+            ControlMsgC2S::PlaceBlock => new_actions.set(PlayerActions::PLACE_BLOCK),
             ControlMsgC2S::EndTick => break,
         }
     }
@@ -100,11 +102,7 @@ fn run_game_update(world: &mut World) {
 
     let nonce: u128 = rand::random();
     let mut hasher = blake3::Hasher::new();
-    hasher.update(&[action.bits]);
-    let rotation = action.rotation;
-    hasher.update(&rotation[0].to_le_bytes());
-    hasher.update(&rotation[1].to_le_bytes());
-    hasher.update(&nonce.to_le_bytes());
+    hasher.update(action.as_bytes().as_slice());
     let action_hash: [u8; 32] = hasher.finalize().into();
 
     connection
@@ -158,11 +156,7 @@ fn process_opponent_actions(
             if net_state.tick > 0 {
                 // Skip the first tick since we have no previous data
                 let mut hasher = blake3::Hasher::new();
-                hasher.update(&[actions.prev_actions.bits]);
-                let rotation = actions.prev_actions.rotation;
-                hasher.update(&rotation[0].to_le_bytes());
-                hasher.update(&rotation[1].to_le_bytes());
-                hasher.update(&actions.nonce.to_le_bytes());
+                hasher.update(&actions.prev_actions.as_bytes());
                 let expected_hash: [u8; 32] = hasher.finalize().into();
                 if expected_hash != net_state.prev_hash {
                     panic!("Opponent's previous actions hash does not match expected hash");
