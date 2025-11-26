@@ -104,7 +104,7 @@ fn move_player(
 
 fn place_block(
     player_query: Query<(Entity, &PlayerID, &Inventory, &Transform)>,
-    head_query: Query<(&GlobalTransform, &ChildOf), With<PlayerHead>>,
+    head_query: Query<(&Transform, &ChildOf), With<PlayerHead>>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
     mut chunk_map: Single<&mut ChunkMap>,
@@ -128,16 +128,14 @@ fn place_block(
                 };
                 let origin = transform.translation + Vec3::new(0.0, -0.9 + 1.6, 0.0); // -half player height + eye height
                 let mut pos = origin;
-                let dir_inv = 1.0 / head_transform.rotation().mul_vec3(-Vec3::Z);
+                let dir_inv =
+                    1.0 / (transform.rotation * head_transform.rotation).mul_vec3(-Vec3::Z);
 
                 for i in 0..50 {
                     commands.spawn((
                         Mesh3d(meshes.add(Cuboid::new(0.05, 0.05, 0.05))),
                         MeshMaterial3d(materials.add(Color::srgb_u8(243, 255, 255))),
-                        Transform::from_translation(
-                            origin
-                                + head_transform.rotation().mul_vec3(-Vec3::Z) * (i as f32 * 0.1),
-                        ),
+                        Transform::from_translation(origin + 1.0 / dir_inv * (i as f32 * 0.1)),
                     ));
                 }
 

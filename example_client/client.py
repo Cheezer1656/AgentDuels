@@ -21,11 +21,13 @@ while True:
                     msg = msg["TickStart"]
                     if ticks == 1:
                         s.send(b'{"SelectItem": "Block"}')
-                    if ticks <= 2:
+                    if ticks == 1:
                         s.send(f'{{"Rotate": [1.5707963, -0.6]}}'.encode())
-                    else:
+                    elif ticks == 2:
                         s.send(f'{{"Rotate": [1.5707963, -0.3]}}'.encode())
-                    if ticks == 2 or ticks == 4:
+                    else:
+                        s.send(f'{{"Rotate": [0.0, -0.6]}}'.encode())
+                    if ticks == 1 or ticks == 2 or ticks == 3:
                         s.send(b'{"PlaceBlock": null}')
 #                     s.send(b'{"MoveForward": null}')
                     s.send(b'{"EndTick": null}')
