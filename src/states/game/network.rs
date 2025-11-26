@@ -93,16 +93,16 @@ fn run_game_update(world: &mut World) {
         }
     }
 
+    // Set action tracker to previous actions (so the game update uses them) (we use previous actions for the current tick)
     let mut actions = world.resource_mut::<PlayerActionsTracker>();
-    actions.0 = new_actions;
+    actions.0 = prev_actions;
 
     world.run_schedule(GameUpdate);
-    let action = world.resource::<PlayerActionsTracker>().0;
     let mut connection = world.resource_mut::<GameConnection>();
 
     let nonce: u128 = rand::random();
     let mut hasher = blake3::Hasher::new();
-    hasher.update(action.as_bytes().as_slice());
+    hasher.update(new_actions.as_bytes().as_slice());
     let action_hash: [u8; 32] = hasher.finalize().into();
 
     connection
@@ -114,7 +114,7 @@ fn run_game_update(world: &mut World) {
         .unwrap();
 
     let mut net_state = world.resource_mut::<NetworkState>();
-    net_state.prev_actions = action;
+    net_state.prev_actions = new_actions;
     net_state.nonce = nonce;
     net_state.phase = NetworkPhase::AwaitingData;
 }
