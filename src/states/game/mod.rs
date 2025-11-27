@@ -1,3 +1,14 @@
+use crate::states::game::gameloop::GOAL_BOUNDS;
+use crate::states::game::player::{Inventory, Score};
+use crate::{
+    AppState, AutoDespawn,
+    states::game::{
+        gameloop::GameLoopPlugin,
+        network::NetworkPlugin,
+        player::{PlayerHead, PlayerID},
+        world::{Chunk, ChunkMap, WorldPlugin},
+    },
+};
 use avian3d::{
     PhysicsPlugins,
     prelude::{
@@ -12,26 +23,16 @@ use bevy::{
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
 
-use crate::states::game::player::Inventory;
-use crate::{
-    AppState, AutoDespawn,
-    states::game::{
-        gameloop::GameLoopPlugin,
-        network::NetworkPlugin,
-        player::{PlayerHead, PlayerID},
-        world::{Chunk, ChunkMap, WorldPlugin},
-    },
-};
-
 mod gameloop;
 mod network;
 mod player;
 mod world;
 
-const PLAYER_SPEED: f32 = 0.1;
-
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Clone, Debug)]
 pub struct GameUpdate;
+
+#[derive(ScheduleLabel, Hash, PartialEq, Eq, Clone, Debug)]
+pub struct PostGameUpdate;
 
 #[derive(PhysicsLayer, Default)]
 pub enum CollisionLayer {
@@ -45,16 +46,17 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_schedule(Schedule::new(GameUpdate))
+            .add_schedule(Schedule::new(PostGameUpdate))
             .add_plugins((
                 WorldPlugin,
                 NetworkPlugin,
                 GameLoopPlugin,
-                PhysicsPlugins::default(),
+                PhysicsPlugins::new(PostGameUpdate),
                 PhysicsDebugPlugin::default(),
             ))
             .add_systems(
                 OnEnter(AppState::Game),
-                (replace_camera, set_bg, setup, cursor_grab),
+                (replace_camera, setup, cursor_grab),
             )
             .add_systems(OnExit(AppState::Game), cursor_ungrab)
             .add_systems(Update, (move_cam).run_if(in_state(AppState::Game)));
@@ -67,13 +69,13 @@ fn replace_camera(mut commands: Commands, camera_query: Query<Entity, With<Camer
     }
     commands.spawn((
         Camera3d::default(),
+        Camera {
+            clear_color: ClearColorConfig::Custom(Color::srgb_u8(48, 193, 255)),
+            ..default()
+        },
         Msaa::Off,
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
-}
-
-fn set_bg(mut clear_color: ResMut<ClearColor>) {
-    clear_color.0 = Color::srgb_u8(48, 193, 255);
 }
 
 fn setup(
@@ -110,7 +112,15 @@ fn setup(
     for i in 0..2 {
         for x in 21..=30 {
             for y in -5..=0 {
-                for z in -5..=5 {
+                'outer: for z in -5..=5 {
+                    for (x_range, y_range, z_range) in GOAL_BOUNDS.iter() {
+                        if x_range.contains(&x)
+                            && (*y_range.start()..=y_range.end() + 1).contains(&y)
+                            && z_range.contains(&z)
+                        {
+                            continue 'outer;
+                        }
+                    }
                     chunkmap
                         .set_block(
                             (x * (i * 2 - 1), y, z).into(),
@@ -143,6 +153,7 @@ fn setup(
         commands.spawn((
             PlayerID(i as u16),
             Inventory::default(),
+            Score::default(),
             RigidBody::Dynamic,
             Collider::cuboid(0.6, 1.8, 0.6),
             CollisionLayers::new(CollisionLayer::Entity, [CollisionLayer::World]),

@@ -7,6 +7,7 @@ use agentduels_protocol::{
 };
 use bevy::prelude::*;
 
+use crate::states::PostGameUpdate;
 use crate::states::game::GameUpdate;
 
 #[derive(Resource, Default, Debug)]
@@ -98,6 +99,7 @@ fn run_game_update(world: &mut World) {
     actions.0 = prev_actions;
 
     world.run_schedule(GameUpdate);
+    world.run_schedule(PostGameUpdate);
     let mut connection = world.resource_mut::<GameConnection>();
 
     let nonce: u128 = rand::random();

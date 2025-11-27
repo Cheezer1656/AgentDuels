@@ -1,30 +1,44 @@
 use agentduels_protocol::{Item, PlayerActions};
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
+use std::ops::RangeInclusive;
 
-use crate::states::game::player::Inventory;
+use crate::states::game::player::{Inventory, Score};
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::{
     GameUpdate,
     game::{
-        PLAYER_SPEED,
         network::{OpponentActionsTracker, PlayerActionsTracker},
         player::{PlayerHead, PlayerID},
     },
 };
 
+pub const PLAYER_SPEED: f32 = 0.5;
+// First goal is for player 0, second for player 1
+pub const GOAL_BOUNDS: [(
+    RangeInclusive<i32>,
+    RangeInclusive<i32>,
+    RangeInclusive<i32>,
+); 2] = [(-25..=-23, -3..=-1, -1..=1), (23..=25, -3..=-1, -1..=1)];
+
+#[derive(EntityEvent)]
+struct GoalEvent(Entity);
+
 pub struct GameLoopPlugin;
 
 impl Plugin for GameLoopPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            GameUpdate,
-            (
-                change_item_in_inv,
-                move_player,
-                place_block.after(change_item_in_inv).after(move_player),
-            ),
-        );
+        app.add_observer(update_score)
+            .add_observer(reset_player_positions_on_goal)
+            .add_systems(
+                GameUpdate,
+                (
+                    change_item_in_inv,
+                    move_player,
+                    place_block.after(change_item_in_inv).after(move_player),
+                    check_goal.after(move_player),
+                ),
+            );
     }
 }
 
@@ -199,5 +213,36 @@ fn place_block(
                 }
             }
         }
+    }
+}
+
+fn check_goal(player_query: Query<(Entity, &PlayerID, &Transform)>, mut commands: Commands) {
+    for (entity, player_id, transform) in player_query.iter() {
+        let pos = transform.translation.floor().as_ivec3();
+        let (x_range, y_range, z_range) = &GOAL_BOUNDS[player_id.0 as usize];
+        if x_range.contains(&pos.x) && y_range.contains(&pos.y) && z_range.contains(&pos.z) {
+            commands.trigger(GoalEvent(entity));
+        }
+    }
+}
+
+fn update_score(event: On<GoalEvent>, mut player_query: Query<&mut Score>) {
+    let Ok(mut score) = player_query.get_mut(event.0) else {
+        return;
+    };
+    score.0 += 1;
+}
+
+fn reset_player_positions_on_goal(
+    _: On<GoalEvent>,
+    mut player_query: Query<(&PlayerID, &mut Transform)>,
+) {
+    for (player_id, mut transform) in player_query.iter_mut() {
+        transform.translation = Vec3::new((player_id.0 as f32 * 2.0 - 1.0) * -21.5, 1.9, 0.5);
+        transform.rotation = if player_id.0 == 0 {
+            Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)
+        } else {
+            Quat::IDENTITY
+        };
     }
 }

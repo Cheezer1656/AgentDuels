@@ -63,3 +63,6 @@ impl Default for Inventory {
         }
     }
 }
+
+#[derive(Component, Default)]
+pub struct Score(pub u16);
