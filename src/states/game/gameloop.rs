@@ -125,7 +125,7 @@ fn move_player(
 }
 
 fn place_block(
-    player_query: Query<(Entity, &PlayerID, &Inventory, &Transform)>,
+    mut player_query: Query<(Entity, &PlayerID, &mut Inventory, &Transform)>,
     head_query: Query<(&Transform, &ChildOf), With<PlayerHead>>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
@@ -134,7 +134,7 @@ fn place_block(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (player_entity, player_id, inv, transform) in player_query.iter() {
+    for (player_entity, player_id, mut inv, transform) in player_query.iter_mut() {
         let actions = if player_id.0 == 0 {
             actions.0
         } else {
@@ -218,6 +218,8 @@ fn place_block(
                             },
                         )
                         .unwrap();
+
+                    inv.remove_item(Item::Block, 1);
                 }
             }
         }
