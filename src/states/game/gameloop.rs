@@ -2,7 +2,6 @@ use agentduels_protocol::{Item, PlayerActions};
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 use std::ops::RangeInclusive;
-
 use crate::states::game::player::{Health, Inventory, Score};
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::{
@@ -13,7 +12,9 @@ use crate::states::{
     },
 };
 
-pub const PLAYER_SPEED: f32 = 0.5;
+pub const PLAYER_SPEED: f32 = 10.0;
+pub const PLAYER_JUMP_SPEED: f32 = 2.0;
+
 // First goal is for player 0, second for player 1
 pub const GOAL_BOUNDS: [(
     RangeInclusive<i32>,
@@ -72,6 +73,7 @@ fn move_player(
     mut player_head_query: Query<(&mut Transform, &ChildOf), (With<PlayerHead>, Without<PlayerID>)>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
+    chunk_map: Single<&ChunkMap>,
 ) {
     for (player_entity, player_id, mut transform, mut velocity) in player_query.iter_mut() {
         let actions = if player_id.0 == 0 {
@@ -80,19 +82,19 @@ fn move_player(
             opp_actions.0
         };
 
-        let mut delta = Vec3::ZERO;
+        let mut new_velocity = Vec3::ZERO;
 
         if actions.is_set(PlayerActions::MOVE_FORWARD) {
-            delta.x += PLAYER_SPEED;
+            new_velocity.x += PLAYER_SPEED;
         }
         if actions.is_set(PlayerActions::MOVE_BACKWARD) {
-            delta.x -= PLAYER_SPEED;
+            new_velocity.x -= PLAYER_SPEED;
         }
         if actions.is_set(PlayerActions::MOVE_LEFT) {
-            delta.z += PLAYER_SPEED;
+            new_velocity.z += PLAYER_SPEED;
         }
         if actions.is_set(PlayerActions::MOVE_RIGHT) {
-            delta.z -= PLAYER_SPEED;
+            new_velocity.z -= PLAYER_SPEED;
         }
 
         let yaw = Quat::from_axis_angle(Vec3::Y, actions.rotation[0]);
@@ -115,12 +117,16 @@ fn move_player(
             transform.rotation *= Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI);
         }
 
-        delta = transform.rotation.mul_vec3(delta);
-        delta.y = 0.0;
-        delta *= 20.0;
+        let on_ground = chunk_map.get_block(transform.translation.floor().as_ivec3() - IVec3::new(0, 1, 0)) != BlockType::Air;
 
-        velocity.0.x = delta.x;
-        velocity.0.z = delta.z;
+        new_velocity = transform.rotation.mul_vec3(new_velocity);
+        new_velocity.y = velocity.y + if actions.is_set(PlayerActions::JUMP) && on_ground {
+            PLAYER_JUMP_SPEED
+        } else {
+            0.0
+        };
+
+        velocity.0 = new_velocity;
     }
 }
 

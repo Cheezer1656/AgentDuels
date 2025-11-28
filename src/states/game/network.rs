@@ -87,6 +87,7 @@ fn run_game_update(world: &mut World) {
             ControlMsgC2S::MoveBackward => new_actions.set(PlayerActions::MOVE_BACKWARD),
             ControlMsgC2S::MoveLeft => new_actions.set(PlayerActions::MOVE_LEFT),
             ControlMsgC2S::MoveRight => new_actions.set(PlayerActions::MOVE_RIGHT),
+            ControlMsgC2S::Jump => new_actions.set(PlayerActions::JUMP),
             ControlMsgC2S::Rotate(x, y) => new_actions.rotation = [x, y],
             ControlMsgC2S::SelectItem(item) => new_actions.item_change = Some(item),
             ControlMsgC2S::PlaceBlock => new_actions.set(PlayerActions::PLACE_BLOCK),

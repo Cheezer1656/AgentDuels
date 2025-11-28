@@ -39,6 +39,7 @@ pub enum ControlMsgC2S {
     MoveBackward,
     MoveLeft,
     MoveRight,
+    Jump,
     /// Rotations do not accumulate within a tick; the last one received is used.
     Rotate(f32, f32),
     SelectItem(Item),
