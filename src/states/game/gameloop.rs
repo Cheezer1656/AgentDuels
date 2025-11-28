@@ -3,7 +3,7 @@ use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 use std::ops::RangeInclusive;
 
-use crate::states::game::player::{Inventory, Score};
+use crate::states::game::player::{Health, Inventory, Score};
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::{
     GameUpdate,
@@ -24,12 +24,18 @@ pub const GOAL_BOUNDS: [(
 #[derive(EntityEvent)]
 struct GoalEvent(Entity);
 
+#[derive(EntityEvent)]
+struct DeathEvent(Entity);
+
 pub struct GameLoopPlugin;
 
 impl Plugin for GameLoopPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(update_score)
-            .add_observer(reset_player_positions_on_goal)
+            .add_observer(reset_players_after_goal)
+            .add_observer(reset_health_after_death)
+            .add_observer(reset_player_position_on_death)
+            .add_observer(reset_player_inv_on_death)
             .add_systems(
                 GameUpdate,
                 (
@@ -37,6 +43,8 @@ impl Plugin for GameLoopPlugin {
                     move_player,
                     place_block.after(change_item_in_inv).after(move_player),
                     check_goal.after(move_player),
+                    check_for_deaths,
+                    kill_oob_players.after(move_player),
                 ),
             );
     }
@@ -233,16 +241,58 @@ fn update_score(event: On<GoalEvent>, mut player_query: Query<&mut Score>) {
     score.0 += 1;
 }
 
-fn reset_player_positions_on_goal(
+// Use DeathEvent to reset players after a goal is scored
+fn reset_players_after_goal(
     _: On<GoalEvent>,
+    mut player_query: Query<Entity, With<PlayerID>>,
+    mut commands: Commands,
+) {
+    for entity in player_query.iter_mut() {
+        commands.trigger(DeathEvent(entity));
+    }
+}
+
+fn check_for_deaths(player_query: Query<(Entity, &Health)>, mut commands: Commands) {
+    for (entity, health) in player_query.iter() {
+        if health.0 <= 0.0 {
+            commands.trigger(DeathEvent(entity));
+        }
+    }
+}
+
+fn reset_health_after_death(event: On<DeathEvent>, mut player_query: Query<&mut Health>) {
+    let Ok(mut health) = player_query.get_mut(event.0) else {
+        return;
+    };
+    health.0 = Health::default().0;
+}
+
+fn reset_player_position_on_death(
+    event: On<DeathEvent>,
     mut player_query: Query<(&PlayerID, &mut Transform)>,
 ) {
-    for (player_id, mut transform) in player_query.iter_mut() {
-        transform.translation = Vec3::new((player_id.0 as f32 * 2.0 - 1.0) * -21.5, 1.9, 0.5);
-        transform.rotation = if player_id.0 == 0 {
-            Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)
-        } else {
-            Quat::IDENTITY
-        };
+    let Ok((player_id, mut transform)) = player_query.get_mut(event.0) else {
+        return;
+    };
+    transform.translation = Vec3::new((player_id.0 as f32 * 2.0 - 1.0) * -21.5, 1.9, 0.5);
+    transform.rotation = if player_id.0 == 0 {
+        Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)
+    } else {
+        Quat::IDENTITY
+    };
+}
+
+fn reset_player_inv_on_death(event: On<DeathEvent>, mut player_query: Query<&mut Inventory>) {
+    let Ok(mut inventory) = player_query.get_mut(event.0) else {
+        return;
+    };
+    *inventory = Inventory::default();
+}
+
+fn kill_oob_players(mut player_query: Query<(&mut Health, &Transform)>) {
+    for (mut health, transform) in player_query.iter_mut() {
+        if transform.translation.y < -10.0 {
+            health.0 = 0.0;
+        }
     }
 }

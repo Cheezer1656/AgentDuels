@@ -10,6 +10,15 @@ pub struct PlayerID(pub u16);
 pub struct PlayerHead;
 
 #[derive(Component)]
+pub struct Health(pub f32);
+
+impl Default for Health {
+    fn default() -> Self {
+        Health(20.0)
+    }
+}
+
+#[derive(Component)]
 pub struct Inventory {
     contents: HashMap<Item, u16>,
     selected: Item,

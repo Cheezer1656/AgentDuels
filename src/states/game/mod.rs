@@ -1,5 +1,5 @@
 use crate::states::game::gameloop::GOAL_BOUNDS;
-use crate::states::game::player::{Inventory, Score};
+use crate::states::game::player::{Health, Inventory, Score};
 use crate::{
     AppState, AutoDespawn,
     states::game::{
@@ -184,6 +184,7 @@ fn setup(
 
         commands.spawn((
             PlayerID(i as u16),
+            Health::default(),
             Inventory::default(),
             Score::default(),
             RigidBody::Dynamic,
