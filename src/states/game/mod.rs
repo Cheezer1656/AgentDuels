@@ -1,5 +1,5 @@
 use crate::states::game::gameloop::GOAL_BOUNDS;
-use crate::states::game::player::{Health, Inventory, Score};
+use crate::states::game::player::{Health, Inventory, PlayerBody, PlayerBundle, Score, PLAYER_HEIGHT, PLAYER_WIDTH};
 use crate::{
     AppState, AutoDespawn,
     states::game::{
@@ -16,6 +16,8 @@ use avian3d::{
         Restitution, RigidBody,
     },
 };
+use avian3d::math::Scalar;
+use avian3d::prelude::{GravityScale, LinearDamping};
 use bevy::{
     ecs::schedule::ScheduleLabel,
     input::mouse::MouseMotion,
@@ -171,54 +173,55 @@ fn setup(
 
     commands.spawn((chunkmap, AutoDespawn(AppState::Game)));
 
-    let player_mesh = meshes.add(Cuboid::new(0.6, 1.3, 0.6));
+    let player_body_mesh = meshes.add(Cuboid::new(PLAYER_WIDTH, 1.3, PLAYER_WIDTH));
     let player_head_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
     let player_direction_mesh = meshes.add(Cuboid::new(0.1, 0.1, 1.0));
 
     for i in 0..2_i32 {
-        let mut transform = Transform::from_xyz((i * 2 - 1) as f32 * -21.5, 1.9, 0.5);
+        let mut body_transform = Transform::from_xyz(0.0, -0.25, 0.0);
         if i == 0 {
             // Player 0 faces -X, Player 1 faces +X
-            transform.rotate_y(std::f32::consts::PI);
+            body_transform.rotate_y(std::f32::consts::PI);
         }
 
         commands.spawn((
-            PlayerID(i as u16),
-            Health::default(),
-            Inventory::default(),
-            Score::default(),
+            PlayerBundle {
+                id: PlayerID(i as u16),
+                transform: Transform::from_xyz((i * 2 - 1) as f32 * -21.5, 1.0 + PLAYER_HEIGHT / 2.0, 0.5),
+                ..default()
+            },
             RigidBody::Dynamic,
-            Collider::cuboid(0.6, 1.8, 0.6),
+            Collider::cuboid(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_WIDTH),
             CollisionLayers::new(CollisionLayer::Entity, [CollisionLayer::World]),
             LockedAxes::ROTATION_LOCKED,
             Friction::new(0.0),
             Restitution::new(0.0),
+            LinearDamping(2.0),
+            GravityScale(2.0),
             Visibility::default(),
-            transform,
             AutoDespawn(AppState::Game),
-            children![
-                (
-                    Mesh3d(player_mesh.clone()),
-                    MeshMaterial3d(materials.add(if i == 0 {
-                        Color::srgb_u8(237, 28, 36)
-                    } else {
-                        Color::srgb_u8(47, 54, 153)
-                    })),
-                    Transform::from_xyz(0.0, -0.25, 0.0),
-                ),
-                (
+            children![(
+                PlayerBody,
+                Mesh3d(player_body_mesh.clone()),
+                MeshMaterial3d(materials.add(if i == 0 {
+                    Color::srgb_u8(237, 28, 36)
+                } else {
+                    Color::srgb_u8(47, 54, 153)
+                })),
+                body_transform,
+                children![(
                     PlayerHead,
                     Mesh3d(player_head_mesh.clone()),
                     MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
-                    Transform::from_xyz(0.0, 0.65, 0.0)
+                    Transform::from_xyz(0.0, PLAYER_HEIGHT / 2.0, 0.0)
                         .with_rotation(Quat::from_rotation_y(-std::f32::consts::PI / 2.0)),
                     children![(
                         Mesh3d(player_direction_mesh.clone()),
                         MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
                         Transform::from_xyz(0.0, 0.0, -0.25)
                     )],
-                )
-            ],
+                )]
+            )],
         ));
     }
 }

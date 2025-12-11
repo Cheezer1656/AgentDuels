@@ -2,9 +2,16 @@ use agentduels_protocol::Item;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
+pub const PLAYER_HEIGHT: f32 = 1.8;
+pub const PLAYER_EYE_HEIGHT: f32 = 1.6;
+pub const PLAYER_WIDTH: f32 = 0.6;
+
 /// ID 0 = self, ID 1 = opponent
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PlayerID(pub u16);
+
+#[derive(Component)]
+pub struct PlayerBody;
 
 #[derive(Component)]
 pub struct PlayerHead;
@@ -75,3 +82,12 @@ impl Default for Inventory {
 
 #[derive(Component, Default)]
 pub struct Score(pub u16);
+
+#[derive(Bundle, Default)]
+pub struct PlayerBundle {
+    pub id: PlayerID,
+    pub health: Health,
+    pub inventory: Inventory,
+    pub score: Score,
+    pub transform: Transform,
+}

@@ -26,12 +26,12 @@ while True:
                     elif ticks == 2:
                         s.send(f'{{"Rotate": [1.5707963, -0.3]}}'.encode())
                     else:
-                        s.send(f'{{"Rotate": [0.1, -0.6]}}'.encode())
+                        s.send(f'{{"Rotate": [0.3, -0.6]}}'.encode())
                     if ticks == 1 or ticks == 2:
                         s.send(b'{"PlaceBlock": null}')
                     else:
                         s.send(b'{"MoveForward": null}')
-                        s.send(b'{"Jump": null}')
+                        # s.send(b'{"Jump": null}')
                     s.send(b'{"EndTick": null}')
                     print("Sent actions")
     except ConnectionRefusedError:

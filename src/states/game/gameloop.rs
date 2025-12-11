@@ -2,15 +2,12 @@ use agentduels_protocol::{Item, PlayerActions};
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 use std::ops::RangeInclusive;
-use crate::states::game::player::{Health, Inventory, Score};
+use crate::states::game::player::{Health, Inventory, PlayerBody, Score, PLAYER_HEIGHT, PLAYER_WIDTH};
 use crate::states::game::world::{BlockType, ChunkMap};
-use crate::states::{
-    GameUpdate,
-    game::{
-        network::{OpponentActionsTracker, PlayerActionsTracker},
-        player::{PlayerHead, PlayerID},
-    },
-};
+use crate::states::{GameUpdate, game::{
+    network::{OpponentActionsTracker, PlayerActionsTracker},
+    player::{PlayerHead, PlayerID},
+}};
 
 pub const PLAYER_SPEED: f32 = 10.0;
 pub const PLAYER_JUMP_SPEED: f32 = 2.0;
@@ -69,64 +66,80 @@ fn change_item_in_inv(
 }
 
 fn move_player(
-    mut player_query: Query<(Entity, &PlayerID, &mut Transform, &mut LinearVelocity)>,
-    mut player_head_query: Query<(&mut Transform, &ChildOf), (With<PlayerHead>, Without<PlayerID>)>,
+    mut player_query: Query<(&PlayerID, &Transform, &mut LinearVelocity, &Children)>,
+    mut player_body_query: Query<(&mut Transform, &Children), (With<PlayerBody>, Without<PlayerID>)>,
+    mut player_head_query: Query<&mut Transform, (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>)>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
     chunk_map: Single<&ChunkMap>,
 ) {
-    for (player_entity, player_id, mut transform, mut velocity) in player_query.iter_mut() {
-        let actions = if player_id.0 == 0 {
-            actions.0
-        } else {
-            opp_actions.0
-        };
+    for (player_id, transform, mut vel, children) in player_query.iter_mut() {
+        for child in children {
+            let (mut body_transform, body_children) = player_body_query.get_mut(*child).unwrap();
 
-        let mut new_velocity = Vec3::ZERO;
+            let actions = if player_id.0 == 0 {
+                actions.0
+            } else {
+                opp_actions.0
+            };
 
-        if actions.is_set(PlayerActions::MOVE_FORWARD) {
-            new_velocity.x += PLAYER_SPEED;
-        }
-        if actions.is_set(PlayerActions::MOVE_BACKWARD) {
-            new_velocity.x -= PLAYER_SPEED;
-        }
-        if actions.is_set(PlayerActions::MOVE_LEFT) {
-            new_velocity.z += PLAYER_SPEED;
-        }
-        if actions.is_set(PlayerActions::MOVE_RIGHT) {
-            new_velocity.z -= PLAYER_SPEED;
-        }
-
-        let yaw = Quat::from_axis_angle(Vec3::Y, actions.rotation[0]);
-        let pitch = Quat::from_axis_angle(
-            Vec3::X,
-            actions.rotation[1].clamp(
-                -std::f32::consts::FRAC_PI_2 + 0.01,
-                std::f32::consts::FRAC_PI_2 - 0.01,
-            ),
-        );
-        for (mut head_transform, parent) in player_head_query.iter_mut() {
-            if parent.0 != player_entity {
-                continue;
+            let mut dir = Vec3::ZERO;
+            if actions.is_set(PlayerActions::MOVE_FORWARD) {
+                dir.x += 1.0;
             }
-            head_transform.rotation = Quat::from_rotation_y(-std::f32::consts::PI / 2.0) * pitch;
+            if actions.is_set(PlayerActions::MOVE_BACKWARD) {
+                dir.x -= 1.0;
+            }
+            if actions.is_set(PlayerActions::MOVE_LEFT) {
+                dir.z += 1.0;
+            }
+            if actions.is_set(PlayerActions::MOVE_RIGHT) {
+                dir.z -= 1.0;
+            }
+
+            let yaw = Quat::from_axis_angle(Vec3::Y, actions.rotation[0]);
+            let pitch = Quat::from_axis_angle(
+                Vec3::X,
+                actions.rotation[1].clamp(
+                    -std::f32::consts::FRAC_PI_2 + 0.01,
+                    std::f32::consts::FRAC_PI_2 - 0.01,
+                ),
+            );
+            for child in body_children.iter() {
+                let mut head_transform = player_head_query.get_mut(child).unwrap();
+                head_transform.rotation = Quat::from_rotation_y(-std::f32::consts::PI / 2.0) * pitch;
+            }
+
+            body_transform.rotation = yaw;
+            if player_id.0 == 0 {
+                body_transform.rotation *= Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI);
+            }
+
+            let p1 = transform.translation - Vec3::new(PLAYER_WIDTH / 2.0, PLAYER_HEIGHT / 2.0, PLAYER_WIDTH / 2.0);
+            let p2 = p1 + Vec3::new(PLAYER_WIDTH, 0.0, 0.0);
+            let p3 = p1 + Vec3::new(0.0, 0.0, PLAYER_WIDTH);
+            let p4 = p1 + Vec3::new(PLAYER_WIDTH, 0.0, PLAYER_WIDTH);
+            let mut on_ground = false;
+            for p in [p1, p2, p3, p4] {
+                if chunk_map.get_block(p.floor().as_ivec3() - IVec3::new(0, 1, 0)) != BlockType::Air {
+                    on_ground = true;
+                    break;
+                }
+            }
+
+            let mut delta = (body_transform.rotation * dir * PLAYER_SPEED) - vel.0;
+            if !on_ground {
+                delta *= 0.01;
+            }
+
+            delta.y = if actions.is_set(PlayerActions::JUMP) && on_ground {
+                PLAYER_JUMP_SPEED - vel.0.y
+            } else {
+                0.0
+            };
+
+            vel.0 += delta;
         }
-
-        transform.rotation = yaw;
-        if player_id.0 == 0 {
-            transform.rotation *= Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI);
-        }
-
-        let on_ground = chunk_map.get_block(transform.translation.floor().as_ivec3() - IVec3::new(0, 1, 0)) != BlockType::Air;
-
-        new_velocity = transform.rotation.mul_vec3(new_velocity);
-        new_velocity.y = velocity.y + if actions.is_set(PlayerActions::JUMP) && on_ground {
-            PLAYER_JUMP_SPEED
-        } else {
-            0.0
-        };
-
-        velocity.0 = new_velocity;
     }
 }
 
@@ -277,17 +290,26 @@ fn reset_health_after_death(event: On<DeathEvent>, mut player_query: Query<&mut 
 
 fn reset_player_position_on_death(
     event: On<DeathEvent>,
-    mut player_query: Query<(&PlayerID, &mut Transform)>,
+    mut player_query: Query<(&PlayerID, &mut Transform, &Children)>,
+    mut player_body_query: Query<(&mut Transform, &Children), (With<PlayerBody>, Without<PlayerID>)>,
+    mut player_head_query: Query<&mut Transform, (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>)>,
 ) {
-    let Ok((player_id, mut transform)) = player_query.get_mut(event.0) else {
-        return;
-    };
+    let (player_id, mut transform, children) = player_query.get_mut(event.0).unwrap();
     transform.translation = Vec3::new((player_id.0 as f32 * 2.0 - 1.0) * -21.5, 1.9, 0.5);
-    transform.rotation = if player_id.0 == 0 {
-        Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)
-    } else {
-        Quat::IDENTITY
-    };
+
+    for child in children.iter() {
+        let (mut body_transform, body_children) = player_body_query.get_mut(child).unwrap();
+        body_transform.rotation = if player_id.0 == 0 {
+            Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)
+        } else {
+            Quat::IDENTITY
+        };
+
+        for child in body_children.iter() {
+            let mut head_transform = player_head_query.get_mut(child).unwrap();
+            head_transform.rotation = Quat::IDENTITY;
+        }
+    }
 }
 
 fn reset_player_inv_on_death(event: On<DeathEvent>, mut player_query: Query<&mut Inventory>) {
