@@ -121,7 +121,7 @@ fn move_player(
             let p4 = p1 + Vec3::new(PLAYER_WIDTH, 0.0, PLAYER_WIDTH);
             let mut on_ground = false;
             for p in [p1, p2, p3, p4] {
-                if chunk_map.get_block(p.floor().as_ivec3() - IVec3::new(0, 1, 0)) != BlockType::Air {
+                if chunk_map.get_block(p.floor().as_ivec3()) != BlockType::Air {
                     on_ground = true;
                     break;
                 }
