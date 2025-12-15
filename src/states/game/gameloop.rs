@@ -74,8 +74,10 @@ fn move_player(
     chunk_map: Single<&ChunkMap>,
 ) {
     for (player_id, transform, mut vel, children) in player_query.iter_mut() {
-        for child in children {
-            let (mut body_transform, body_children) = player_body_query.get_mut(*child).unwrap();
+        for child in children.iter() {
+            let Ok((mut body_transform, body_children)) = player_body_query.get_mut(child) else {
+                continue;
+            };
 
             let actions = if player_id.0 == 0 {
                 actions.0
@@ -106,7 +108,9 @@ fn move_player(
                 ),
             );
             for child in body_children.iter() {
-                let mut head_transform = player_head_query.get_mut(child).unwrap();
+                let Ok(mut head_transform) = player_head_query.get_mut(child) else {
+                    continue;
+                };
                 head_transform.rotation = Quat::from_rotation_y(-std::f32::consts::PI / 2.0) * pitch;
             }
 
@@ -303,7 +307,9 @@ fn reset_player_position_on_death(
     transform.translation = Vec3::new((player_id.0 as f32 * 2.0 - 1.0) * -21.5, 1.9, 0.5);
 
     for child in children.iter() {
-        let (mut body_transform, body_children) = player_body_query.get_mut(child).unwrap();
+        let Ok((mut body_transform, body_children)) = player_body_query.get_mut(child) else {
+            continue;
+        };
         body_transform.rotation = if player_id.0 == 0 {
             Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)
         } else {
