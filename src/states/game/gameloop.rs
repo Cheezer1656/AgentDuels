@@ -144,8 +144,9 @@ fn move_player(
 }
 
 fn place_block(
-    mut player_query: Query<(Entity, &PlayerID, &mut Inventory, &Transform)>,
-    head_query: Query<(&Transform, &ChildOf), With<PlayerHead>>,
+    mut player_query: Query<(&PlayerID, &mut Inventory, &Transform, &Children)>,
+    player_body_query: Query<(&Transform, &Children), (With<PlayerBody>, Without<PlayerID>)>,
+    player_head_query: Query<&Transform, (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>)>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
     mut chunk_map: Single<&mut ChunkMap>,
@@ -153,92 +154,96 @@ fn place_block(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (player_entity, player_id, mut inv, transform) in player_query.iter_mut() {
+    for (player_id, mut inv, transform, children) in player_query.iter_mut() {
         let actions = if player_id.0 == 0 {
             actions.0
         } else {
             opp_actions.0
         };
-        if actions.is_set(PlayerActions::PLACE_BLOCK) {
-            if inv.get_selected_item() == Item::Block && inv.get_count(Item::Block) > 0 {
-                let Some((head_transform, _)) = head_query
-                    .iter()
-                    .find(|(_, parent)| parent.0 == player_entity)
-                else {
-                    continue;
-                };
-                let origin = transform.translation + Vec3::new(0.0, -0.9 + 1.6, 0.0); // -half player height + eye height
-                let mut pos = origin;
-                let dir_inv =
-                    1.0 / (transform.rotation * head_transform.rotation).mul_vec3(-Vec3::Z);
+        for child in children.iter() {
+            let Ok((body_transform, children)) = player_body_query.get(child) else {
+                continue;
+            };
+            if actions.is_set(PlayerActions::PLACE_BLOCK) {
+                if inv.get_selected_item() == Item::Block && inv.get_count(Item::Block) > 0 {
+                    for child in children.iter() {
+                        let Ok(head_transform) = player_head_query.get(child) else {
+                            continue;
+                        };
+                        let origin = transform.translation + Vec3::new(0.0, -0.9 + 1.6, 0.0); // -half player height + eye height
+                        let mut pos = origin;
+                        let dir_inv =
+                            1.0 / (body_transform.rotation * head_transform.rotation).mul_vec3(-Vec3::Z);
 
-                for i in 0..50 {
-                    commands.spawn((
-                        Mesh3d(meshes.add(Cuboid::new(0.05, 0.05, 0.05))),
-                        MeshMaterial3d(materials.add(Color::srgb_u8(243, 255, 255))),
-                        Transform::from_translation(origin + 1.0 / dir_inv * (i as f32 * 0.1)),
-                    ));
-                }
-
-                let step = dir_inv.map(|a| a.signum());
-                let select = dir_inv.map(|a| 0.5 + 0.5 * a.signum());
-                let mut found = false;
-                loop {
-                    if chunk_map.get_block(pos.floor().as_ivec3()) != BlockType::Air {
-                        found = true;
-                        break;
-                    } else if (pos - origin).length_squared() > 5.0 * 5.0 {
-                        break;
-                    }
-
-                    let planes = pos.floor() + select;
-                    let t = (planes - origin) * dir_inv;
-
-                    if t.x < t.y {
-                        if t.x < t.z {
-                            pos.x += step.x;
-                        } else {
-                            pos.z += step.z;
+                        for i in 0..50 {
+                            commands.spawn((
+                                Mesh3d(meshes.add(Cuboid::new(0.05, 0.05, 0.05))),
+                                MeshMaterial3d(materials.add(Color::srgb_u8(243, 255, 255))),
+                                Transform::from_translation(origin + 1.0 / dir_inv * (i as f32 * 0.1)),
+                            ));
                         }
-                    } else {
-                        if t.y < t.z {
-                            pos.y += step.y;
-                        } else {
-                            pos.z += step.z;
-                        }
-                    }
-                }
 
-                if found {
-                    let floored_pos = pos.floor();
+                        let step = dir_inv.map(|a| a.signum());
+                        let select = dir_inv.map(|a| 0.5 + 0.5 * a.signum());
+                        let mut found = false;
+                        loop {
+                            if chunk_map.get_block(pos.floor().as_ivec3()) != BlockType::Air {
+                                found = true;
+                                break;
+                            } else if (pos - origin).length_squared() > 5.0 * 5.0 {
+                                break;
+                            }
 
-                    let t1 = (floored_pos - origin) * dir_inv;
-                    let t2 = (floored_pos + Vec3::splat(1.0) - origin) * dir_inv;
-                    let t_min = t1.min(t2);
-                    let t_hit = t_min.x.max(t_min.y).max(t_min.z);
+                            let planes = pos.floor() + select;
+                            let t = (planes - origin) * dir_inv;
 
-                    let face = (if t_hit == t_min.x {
-                        Vec3::new(-step.x, 0.0, 0.0)
-                    } else if t_hit == t_min.y {
-                        Vec3::new(0.0, -step.y, 0.0)
-                    } else {
-                        Vec3::new(0.0, 0.0, -step.z)
-                    })
-                    .normalize();
-
-                    let block_pos = (floored_pos + face).as_ivec3();
-                    chunk_map
-                        .set_block(
-                            block_pos,
-                            if player_id.0 == 0 {
-                                BlockType::RedBlock
+                            if t.x < t.y {
+                                if t.x < t.z {
+                                    pos.x += step.x;
+                                } else {
+                                    pos.z += step.z;
+                                }
                             } else {
-                                BlockType::BlueBlock
-                            },
-                        )
-                        .unwrap();
+                                if t.y < t.z {
+                                    pos.y += step.y;
+                                } else {
+                                    pos.z += step.z;
+                                }
+                            }
+                        }
 
-                    inv.remove_item(Item::Block, 1);
+                        if found {
+                            let floored_pos = pos.floor();
+
+                            let t1 = (floored_pos - origin) * dir_inv;
+                            let t2 = (floored_pos + Vec3::splat(1.0) - origin) * dir_inv;
+                            let t_min = t1.min(t2);
+                            let t_hit = t_min.x.max(t_min.y).max(t_min.z);
+
+                            let face = (if t_hit == t_min.x {
+                                Vec3::new(-step.x, 0.0, 0.0)
+                            } else if t_hit == t_min.y {
+                                Vec3::new(0.0, -step.y, 0.0)
+                            } else {
+                                Vec3::new(0.0, 0.0, -step.z)
+                            })
+                                .normalize();
+
+                            let block_pos = (floored_pos + face).as_ivec3();
+                            chunk_map
+                                .set_block(
+                                    block_pos,
+                                    if player_id.0 == 0 {
+                                        BlockType::RedBlock
+                                    } else {
+                                        BlockType::BlueBlock
+                                    },
+                                )
+                                .unwrap();
+
+                            inv.remove_item(Item::Block, 1);
+                        }
+                    }
                 }
             }
         }
