@@ -105,6 +105,7 @@ fn run_game_update(world: &mut World) {
 
     let nonce: u128 = rand::random();
     let mut hasher = blake3::Hasher::new();
+    hasher.update(&nonce.to_le_bytes());
     hasher.update(new_actions.as_bytes().as_slice());
     let action_hash: [u8; 32] = hasher.finalize().into();
 
@@ -155,20 +156,21 @@ fn process_opponent_actions(
         return;
     }
     for PacketEvent(packet) in packet_ev.read() {
-        if let Packet::PlayerActions(actions) = packet {
+        if let Packet::PlayerActions(actions_packet) = packet {
             if net_state.tick > 0 {
                 // Skip the first tick since we have no previous data
                 let mut hasher = blake3::Hasher::new();
-                hasher.update(&actions.prev_actions.as_bytes());
+                hasher.update(&actions_packet.nonce.to_le_bytes());
+                hasher.update(&actions_packet.prev_actions.as_bytes());
                 let expected_hash: [u8; 32] = hasher.finalize().into();
                 if expected_hash != net_state.prev_hash {
                     panic!("Opponent's previous actions hash does not match expected hash");
                 }
             }
 
-            opponent_actions.0 = actions.prev_actions;
+            opponent_actions.0 = actions_packet.prev_actions;
 
-            net_state.prev_hash = actions.action_hash;
+            net_state.prev_hash = actions_packet.action_hash;
             net_state.tick += 1;
             net_state.phase = NetworkPhase::StartingTick;
         }
