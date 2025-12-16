@@ -2,7 +2,7 @@ use agentduels_protocol::{Item, PlayerActions};
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 use std::ops::RangeInclusive;
-use crate::states::game::player::{Health, Inventory, PlayerBody, Score, PLAYER_HEIGHT, PLAYER_WIDTH};
+use crate::states::game::player::{Health, Inventory, PlayerBody, Score, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_WIDTH};
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::{GameUpdate, game::{
     network::{OpponentActionsTracker, PlayerActionsTracker},
@@ -175,7 +175,7 @@ fn place_block(
                         let Ok(head_transform) = player_head_query.get(child) else {
                             continue;
                         };
-                        let origin = transform.translation + Vec3::new(0.0, -0.9 + 1.6, 0.0); // -half player height + eye height
+                        let origin = transform.translation + Vec3::new(0.0, -0.9 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
                         let mut pos = origin;
                         let dir_inv =
                             1.0 / (body_transform.rotation * head_transform.rotation).mul_vec3(-Vec3::Z);
