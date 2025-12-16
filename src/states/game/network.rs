@@ -6,7 +6,7 @@ use agentduels_protocol::{
     packets::{PlayerActions, PlayerActionsPacket},
 };
 use bevy::prelude::*;
-
+use fastrand::Rng;
 use crate::states::PostGameUpdate;
 use crate::states::game::GameUpdate;
 
@@ -48,8 +48,9 @@ impl Plugin for NetworkPlugin {
                     run_game_update,
                     receive_packets,
                     process_opponent_actions,
-                    send_control_start.after(gen_seed),
+                    send_control_start.after(gen_seed).after(regen_seed),
                     gen_seed,
+                    regen_seed,
                 )
                     .run_if(in_state(crate::AppState::Game)),
             );
@@ -204,13 +205,33 @@ fn send_control_start(
 
 /// Random number generator seeded each tick based on both players' nonces
 #[derive(Resource)]
-pub struct TickRand(pub fastrand::Rng);
+pub struct GameRng(fastrand::Rng);
 
-fn gen_seed(mut seed: ResMut<TickRand>, net_state: Res<NetworkState>, mut packet_ev: MessageReader<PacketEvent>) {
+impl GameRng {
+    /// Don't let consumers change the internal state to ensure all systems get the same random values regardless of execution order.
+    /// The internal RNG is changed each tick by the `regen_seed` system.
+    pub fn clone_rng(&self) -> Rng {
+        self.0.clone()
+    }
+}
+
+fn gen_seed(seed: Option<Res<GameRng>>, net_state: Res<NetworkState>, mut packet_ev: MessageReader<PacketEvent>, mut commands: Commands) {
+    if seed.is_some() {
+        return;
+    }
     for PacketEvent(packet) in packet_ev.read() {
         if let Packet::PlayerActions(actions_packet) = packet {
             // Combine both nonces to generate the seed
-            seed.0 = fastrand::Rng::with_seed((net_state.nonce ^ actions_packet.nonce) as u64);
+            let rng = fastrand::Rng::with_seed((net_state.nonce ^ actions_packet.nonce) as u64);
+            commands.insert_resource(GameRng(rng));
         };
     }
+}
+
+fn regen_seed(seed: Option<ResMut<GameRng>>) {
+    let Some(mut seed) = seed else {
+        return;
+    };
+    // Change the internal state of the RNG each tick to ensure different random values each tick
+    seed.0.u64(0..u64::MAX);
 }
