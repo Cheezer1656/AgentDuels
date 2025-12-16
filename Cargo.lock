@@ -317,6 +317,7 @@ dependencies = [
  "avian3d",
  "bevy",
  "blake3",
+ "fastrand",
  "postcard",
  "rand",
  "serde",

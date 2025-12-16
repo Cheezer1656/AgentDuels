@@ -48,7 +48,8 @@ impl Plugin for NetworkPlugin {
                     run_game_update,
                     receive_packets,
                     process_opponent_actions,
-                    send_control_start,
+                    send_control_start.after(gen_seed),
+                    gen_seed,
                 )
                     .run_if(in_state(crate::AppState::Game)),
             );
@@ -199,4 +200,17 @@ fn send_control_start(
             .as_bytes(),
         )
         .unwrap();
+}
+
+/// Random number generator seeded each tick based on both players' nonces
+#[derive(Resource)]
+pub struct TickRand(pub fastrand::Rng);
+
+fn gen_seed(mut seed: ResMut<TickRand>, net_state: Res<NetworkState>, mut packet_ev: MessageReader<PacketEvent>) {
+    for PacketEvent(packet) in packet_ev.read() {
+        if let Packet::PlayerActions(actions_packet) = packet {
+            // Combine both nonces to generate the seed
+            seed.0 = fastrand::Rng::with_seed((net_state.nonce ^ actions_packet.nonce) as u64);
+        };
+    }
 }
