@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MatchIDPacket {
-    pub id: u32,
+    pub id: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

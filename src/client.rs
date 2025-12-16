@@ -11,6 +11,13 @@ use agentduels_protocol::{Packet, PacketCodec, packets::HandshakePacket};
 pub struct GameConnection {
     pub socket: TcpStream,
     pub codec: PacketCodec,
+    match_id: u64,
+}
+
+impl GameConnection {
+    pub fn match_id(&self) -> u64 {
+        self.match_id
+    }
 }
 
 impl GameConnection {
@@ -27,6 +34,7 @@ impl GameConnection {
         };
 
         println!("Match ID: {}", packet.id);
+        let match_id = packet.id;
 
         let packet = Packet::Handshake(HandshakePacket {
             protocol_version: 1,
@@ -44,7 +52,7 @@ impl GameConnection {
             packet.protocol_version
         );
 
-        Ok(GameConnection { socket, codec })
+        Ok(GameConnection { socket, codec, match_id })
     }
 
     pub fn send_packet(&mut self, packet: Packet) -> anyhow::Result<()> {
