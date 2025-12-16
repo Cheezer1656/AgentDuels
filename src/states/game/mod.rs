@@ -1,5 +1,5 @@
 use crate::states::game::gameloop::GOAL_BOUNDS;
-use crate::states::game::player::{Health, Inventory, PlayerBody, PlayerBundle, Score, PLAYER_HEIGHT, PLAYER_WIDTH};
+use crate::states::game::player::{Health, Inventory, PlayerBody, PlayerBundle, Score, PLAYER_HEIGHT, PLAYER_WIDTH, SPAWN_POSITIONS, SPAWN_ROTATIONS};
 use crate::{
     AppState, AutoDespawn,
     states::game::{
@@ -179,15 +179,12 @@ fn setup(
 
     for i in 0..2_i32 {
         let mut body_transform = Transform::from_xyz(0.0, -0.25, 0.0);
-        if i == 0 {
-            // Player 0 faces -X, Player 1 faces +X
-            body_transform.rotate_y(std::f32::consts::PI);
-        }
+        body_transform.rotation = Quat::from_rotation_y(SPAWN_ROTATIONS[i as usize]);
 
         commands.spawn((
             PlayerBundle {
                 id: PlayerID(i as u16),
-                transform: Transform::from_xyz((i * 2 - 1) as f32 * -21.5, 1.0 + PLAYER_HEIGHT / 2.0, 0.5),
+                transform: Transform::from_translation(SPAWN_POSITIONS[i as usize]),
                 ..default()
             },
             RigidBody::Dynamic,

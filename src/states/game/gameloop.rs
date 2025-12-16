@@ -2,7 +2,7 @@ use agentduels_protocol::{Item, PlayerActions};
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 use std::ops::RangeInclusive;
-use crate::states::game::player::{Health, Inventory, PlayerBody, Score, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_WIDTH};
+use crate::states::game::player::{Health, Inventory, PlayerBody, Score, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_WIDTH, SPAWN_POSITIONS, SPAWN_ROTATIONS};
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::{GameUpdate, game::{
     network::{OpponentActionsTracker, PlayerActionsTracker},
@@ -311,17 +311,13 @@ fn reset_player_position_on_death(
     mut player_head_query: Query<&mut Transform, (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>)>,
 ) {
     let (player_id, mut transform, children) = player_query.get_mut(event.0).unwrap();
-    transform.translation = Vec3::new((player_id.0 as f32 * 2.0 - 1.0) * -21.5, 1.9, 0.5);
+    transform.translation = SPAWN_POSITIONS[player_id.0 as usize];
 
     for child in children.iter() {
         let Ok((mut body_transform, body_children)) = player_body_query.get_mut(child) else {
             continue;
         };
-        body_transform.rotation = if player_id.0 == 0 {
-            Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)
-        } else {
-            Quat::IDENTITY
-        };
+        body_transform.rotation = Quat::from_rotation_y(SPAWN_ROTATIONS[player_id.0 as usize]);
 
         for child in body_children.iter() {
             let mut head_transform = player_head_query.get_mut(child).unwrap();

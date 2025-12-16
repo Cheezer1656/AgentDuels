@@ -5,6 +5,8 @@ use std::collections::HashMap;
 pub const PLAYER_HEIGHT: f32 = 1.8;
 pub const PLAYER_EYE_HEIGHT: f32 = 1.6;
 pub const PLAYER_WIDTH: f32 = 0.6;
+pub const SPAWN_POSITIONS: [Vec3; 2] = [Vec3::new(21.5, 1.0 + PLAYER_HEIGHT / 2.0, 0.5), Vec3::new(-21.5, 1.0 + PLAYER_HEIGHT / 2.0, 0.5)];
+pub const SPAWN_ROTATIONS: [f32; 2] = [std::f32::consts::PI, 0.0];
 
 /// ID 0 = self, ID 1 = opponent
 #[derive(Component, Default)]
