@@ -1,23 +1,22 @@
 use crate::states::game::gameloop::GOAL_BOUNDS;
-use crate::states::game::player::{Health, Inventory, PlayerBody, PlayerBundle, Score, PLAYER_HEIGHT, PLAYER_WIDTH, SPAWN_POSITIONS, SPAWN_ROTATIONS};
+use crate::states::game::player::{PlayerBody, PlayerBundle, Score, PLAYER_HEIGHT, PLAYER_WIDTH, SPAWN_POSITIONS, SPAWN_ROTATIONS};
 use crate::{
-    AppState, AutoDespawn,
     states::game::{
         gameloop::GameLoopPlugin,
         network::NetworkPlugin,
         player::{PlayerHead, PlayerID},
         world::{Chunk, ChunkMap, WorldPlugin},
-    },
+    }, AppState,
+    AutoDespawn,
 };
+use avian3d::prelude::{GravityScale, LinearDamping};
 use avian3d::{
-    PhysicsPlugins,
     prelude::{
         Collider, CollisionLayers, Friction, LockedAxes, PhysicsDebugPlugin, PhysicsLayer,
         Restitution, RigidBody,
     },
+    PhysicsPlugins,
 };
-use avian3d::math::Scalar;
-use avian3d::prelude::{GravityScale, LinearDamping};
 use bevy::{
     ecs::schedule::ScheduleLabel,
     input::mouse::MouseMotion,
