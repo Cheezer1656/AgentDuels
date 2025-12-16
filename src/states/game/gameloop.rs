@@ -8,6 +8,7 @@ use crate::states::{GameUpdate, game::{
     network::{OpponentActionsTracker, PlayerActionsTracker},
     player::{PlayerHead, PlayerID},
 }};
+use crate::states::game::network::GameRng;
 
 pub const PLAYER_SPEED: f32 = 10.0;
 pub const PLAYER_JUMP_SPEED: f32 = 2.0;
@@ -254,14 +255,20 @@ fn place_block(
     }
 }
 
-fn check_goal(player_query: Query<(Entity, &PlayerID, &Transform)>, mut commands: Commands) {
+/// Check if any player has reached their goal area
+/// Only one player can score at a time; if multiple are in the goal area, one is chosen at random
+fn check_goal(player_query: Query<(Entity, &PlayerID, &Transform)>, rng: Res<GameRng>, mut commands: Commands) {
+    let mut entities = Vec::new();
     for (entity, player_id, transform) in player_query.iter() {
         let pos = transform.translation.floor().as_ivec3();
         let (x_range, y_range, z_range) = &GOAL_BOUNDS[player_id.0 as usize];
         if x_range.contains(&pos.x) && y_range.contains(&pos.y) && z_range.contains(&pos.z) {
-            commands.trigger(GoalEvent(entity));
+            entities.push(entity);
         }
     }
+    if let Some(chosen_entity) = rng.clone_rng().choice(entities.iter()) {
+        commands.trigger(GoalEvent(*chosen_entity));
+    };
 }
 
 fn update_score(event: On<GoalEvent>, mut player_query: Query<&mut Score>) {
