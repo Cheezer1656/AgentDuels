@@ -93,6 +93,7 @@ fn run_game_update(world: &mut World) {
             ControlMsgC2S::Rotate(x, y) => new_actions.rotation = [x, y],
             ControlMsgC2S::SelectItem(item) => new_actions.item_change = Some(item),
             ControlMsgC2S::PlaceBlock => new_actions.set(PlayerActions::PLACE_BLOCK),
+            ControlMsgC2S::Attack => new_actions.set(PlayerActions::ATTACK),
             ControlMsgC2S::EndTick => break,
         }
     }

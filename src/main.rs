@@ -44,6 +44,7 @@ pub enum ControlMsgC2S {
     Rotate(f32, f32),
     SelectItem(Item),
     PlaceBlock,
+    Attack,
     EndTick,
 }
 

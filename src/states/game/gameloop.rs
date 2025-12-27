@@ -1,17 +1,18 @@
-use agentduels_protocol::{Item, PlayerActions};
-use avian3d::prelude::LinearVelocity;
-use bevy::prelude::*;
-use std::ops::RangeInclusive;
-use crate::states::game::player::{Health, Inventory, PlayerBody, Score, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_WIDTH, SPAWN_POSITIONS, SPAWN_ROTATIONS};
+use crate::states::game::network::GameRng;
+use crate::states::game::player::{Health, HurtCooldown, Inventory, PlayerBody, Score, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_WIDTH, SPAWN_POSITIONS, SPAWN_ROTATIONS};
 use crate::states::game::world::{BlockType, ChunkMap};
-use crate::states::{GameUpdate, game::{
+use crate::states::{game::{
     network::{OpponentActionsTracker, PlayerActionsTracker},
     player::{PlayerHead, PlayerID},
-}};
-use crate::states::game::network::GameRng;
+}, GameUpdate};
+use agentduels_protocol::{Item, PlayerActions};
+use avian3d::prelude::{LinearVelocity, SpatialQuery, SpatialQueryFilter};
+use bevy::prelude::*;
+use std::ops::RangeInclusive;
 
 pub const PLAYER_SPEED: f32 = 10.0;
 pub const PLAYER_JUMP_SPEED: f32 = 2.0;
+pub const PLAYER_INTERACT_RANGE: f32 = 5.0;
 
 // First goal is for player 0, second for player 1
 pub const GOAL_BOUNDS: [(
@@ -41,6 +42,8 @@ impl Plugin for GameLoopPlugin {
                     change_item_in_inv,
                     move_player,
                     place_block.after(change_item_in_inv).after(move_player),
+                    attack.after(change_item_in_inv).after(move_player).after(tick_hurt_cooldown),
+                    tick_hurt_cooldown,
                     check_goal.after(move_player),
                     check_for_deaths,
                     kill_oob_players.after(move_player),
@@ -252,6 +255,60 @@ fn place_block(
                 }
             }
         }
+    }
+}
+
+fn attack(
+    player_query: Query<(Entity, &PlayerID, &Transform, &Children)>,
+    player_body_query: Query<(&Transform, &Children), (With<PlayerBody>, Without<PlayerID>)>,
+    player_head_query: Query<&Transform, (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>)>,
+    mut player_query_2: Query<(&mut Health, &mut HurtCooldown), With<PlayerID>>,
+    actions: Res<PlayerActionsTracker>,
+    opp_actions: Res<OpponentActionsTracker>,
+    spatial_query: SpatialQuery,
+) {
+    for (entity, player_id, transform, children) in player_query.iter() {
+        let actions = if player_id.0 == 0 {
+            actions.0
+        } else {
+            opp_actions.0
+        };
+        if actions.is_set(PlayerActions::ATTACK) {
+            for child in children.iter() {
+                let Ok((body_transform, children)) = player_body_query.get(child) else {
+                    continue;
+                };
+                for child in children.iter() {
+                    let Ok(head_transform) = player_head_query.get(child) else {
+                        continue;
+                    };
+                    let origin = transform.translation + Vec3::new(0.0, -0.9 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
+                    let dir = (body_transform.rotation * head_transform.rotation).mul_vec3(-Vec3::Z);
+
+                    let hits = spatial_query.ray_hits(origin, Dir3::new(dir).unwrap(), PLAYER_INTERACT_RANGE, 10, true, &SpatialQueryFilter::default());
+                    for hit in hits.iter() {
+                        if hit.entity == entity {
+                            continue;
+                        }
+                        if let Ok((mut health, mut hurt_cooldown)) = player_query_2.get_mut(hit.entity) {
+                            if hurt_cooldown.0 > 0 {
+                                continue;
+                            }
+                            health.0 -= 5.0;
+                            hurt_cooldown.0 = 10;
+                            println!("Player {:?} attacked entity {:?}, new health: {}", entity, hit.entity, health.0);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn tick_hurt_cooldown(mut player_query: Query<&mut HurtCooldown>) {
+    for mut hurt_cooldown in player_query.iter_mut() {
+        hurt_cooldown.0 = hurt_cooldown.0.saturating_sub(1);
     }
 }
 

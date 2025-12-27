@@ -27,6 +27,10 @@ impl Default for Health {
     }
 }
 
+/// Hurt cooldown in ticks (player can't be hurt again until this reaches 0)
+#[derive(Component, Default)]
+pub struct HurtCooldown(pub u8);
+
 #[derive(Component)]
 pub struct Inventory {
     contents: HashMap<Item, u16>,
@@ -89,6 +93,7 @@ pub struct Score(pub u16);
 pub struct PlayerBundle {
     pub id: PlayerID,
     pub health: Health,
+    pub hurt_cooldown: HurtCooldown,
     pub inventory: Inventory,
     pub score: Score,
     pub transform: Transform,
