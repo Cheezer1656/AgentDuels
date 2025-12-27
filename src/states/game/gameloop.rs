@@ -1,5 +1,5 @@
 use crate::states::game::network::GameRng;
-use crate::states::game::player::{Health, HurtCooldown, Inventory, PlayerBody, Score, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_WIDTH, SPAWN_POSITIONS, SPAWN_ROTATIONS};
+use crate::states::game::player::{Health, HurtCooldown, Inventory, PlayerBody, Score, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, SPAWN_POSITIONS, SPAWN_ROTATIONS};
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::{game::{
     network::{OpponentActionsTracker, PlayerActionsTracker},
@@ -9,10 +9,6 @@ use agentduels_protocol::{Item, PlayerActions};
 use avian3d::prelude::{LinearVelocity, SpatialQuery, SpatialQueryFilter};
 use bevy::prelude::*;
 use std::ops::RangeInclusive;
-
-pub const PLAYER_SPEED: f32 = 10.0;
-pub const PLAYER_JUMP_SPEED: f32 = 2.0;
-pub const PLAYER_INTERACT_RANGE: f32 = 5.0;
 
 // First goal is for player 0, second for player 1
 pub const GOAL_BOUNDS: [(
