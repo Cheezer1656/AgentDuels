@@ -27,9 +27,9 @@ impl GameConnection {
         let codec = PacketCodec::default();
 
         let mut buf = [0; 16];
-        socket.read(buf.as_mut_slice()).unwrap();
+        socket.read(buf.as_mut_slice())?;
         println!("Read {:?} bytes", &buf);
-        let Packet::MatchID(ref packet) = codec.read(&buf).unwrap()[0] else {
+        let Packet::MatchID(ref packet) = codec.read(&buf)?[0] else {
             bail!("Expected MatchID packet");
         };
 
@@ -39,11 +39,11 @@ impl GameConnection {
         let packet = Packet::Handshake(HandshakePacket {
             protocol_version: 1,
         });
-        socket.write_all(&codec.write(&packet).unwrap()).unwrap();
+        socket.write_all(&codec.write(&packet)?)?;
 
         let mut buf = [0; 16];
-        socket.read(buf.as_mut_slice()).unwrap();
-        let Packet::Handshake(ref packet) = codec.read(&buf).unwrap()[0] else {
+        socket.read(buf.as_mut_slice())?;
+        let Packet::Handshake(ref packet) = codec.read(&buf)?[0] else {
             bail!("Expected Handshake packet");
         };
 

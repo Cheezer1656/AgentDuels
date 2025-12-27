@@ -44,7 +44,7 @@ impl PlayerActions {
                 }]
                 .iter(),
             )
-            .map(|b| *b)
+            .copied()
             .collect()
     }
 
