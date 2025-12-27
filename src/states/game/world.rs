@@ -32,15 +32,19 @@ pub enum BlockType {
 }
 
 impl BlockType {
-    pub fn get_uv(&self) -> (f32, f32, f32, f32) {
+    pub fn get_uvs(&self) -> [(f32, f32, f32, f32); 6] {
         match self {
-            BlockType::Air => (0.0, 0.0, 0.0, 0.0),
-            BlockType::Grass => (0.0, 0.25, 0.25, 0.0),
-            BlockType::Dirt => (0.25, 0.5, 0.25, 0.0),
-            BlockType::Stone => (0.5, 0.75, 0.25, 0.0),
-            BlockType::RedBlock => (0.25, 0.0, 0.5, 0.25),
-            BlockType::BlueBlock => (0.25, 0.5, 0.5, 0.25),
-            BlockType::WhiteBlock => (0.5, 0.75, 0.5, 0.25),
+            BlockType::Air => [(0.0, 0.0, 0.0, 0.0); 6],
+            BlockType::Grass => {
+                let mut uvs = [(0.0, 0.25, 0.25, 0.0); 6];
+                uvs[2] = (0.25, 0.5, 0.25, 0.0); // top
+                uvs
+            },
+            BlockType::Dirt => [(0.5, 0.75, 0.25, 0.0); 6],
+            BlockType::Stone => [(0.75, 1.0, 0.25, 0.0); 6],
+            BlockType::RedBlock => [(0.25, 0.0, 0.5, 0.25); 6],
+            BlockType::BlueBlock => [(0.25, 0.5, 0.5, 0.25); 6],
+            BlockType::WhiteBlock => [(0.5, 0.75, 0.5, 0.25); 6],
         }
     }
 }
@@ -117,7 +121,7 @@ impl Chunk {
                         continue;
                     }
 
-                    let (u0, u1, v0, v1) = block_type.get_uv();
+                    let block_uvs = block_type.get_uvs();
 
                     let xf = x as f32 - 0.5;
                     let yf = y as f32 - 0.5;
@@ -125,6 +129,7 @@ impl Chunk {
 
                     // +X face (right); right = +Z, up = +Y
                     if !is_opaque(x as isize + 1, y as isize, z as isize) {
+                        let (u0, u1, v0, v1) = block_uvs[0];
                         push_face(
                             [
                                 [xf + 1.0, yf + 0.0, zf + 0.0],
@@ -139,6 +144,7 @@ impl Chunk {
                     }
                     // -X face (left); right = -Z, up = +Y
                     if !is_opaque(x as isize - 1, y as isize, z as isize) {
+                        let (u0, u1, v0, v1) = block_uvs[1];
                         push_face(
                             [
                                 [xf + 0.0, yf + 0.0, zf + 1.0],
@@ -153,6 +159,7 @@ impl Chunk {
                     }
                     // +Y face (top); right = +X, up = +Z
                     if !is_opaque(x as isize, y as isize + 1, z as isize) {
+                        let (u0, u1, v0, v1) = block_uvs[2];
                         push_face(
                             [
                                 [xf + 0.0, yf + 1.0, zf + 0.0],
@@ -167,6 +174,7 @@ impl Chunk {
                     }
                     // -Y face (bottom); right = +X, up = -Z
                     if !is_opaque(x as isize, y as isize - 1, z as isize) {
+                        let (u0, u1, v0, v1) = block_uvs[3];
                         push_face(
                             [
                                 [xf + 0.0, yf + 0.0, zf + 0.0],
@@ -180,6 +188,7 @@ impl Chunk {
                     }
                     // +Z face (front); right = -X, up = +Y
                     if !is_opaque(x as isize, y as isize, z as isize + 1) {
+                        let (u0, u1, v0, v1) = block_uvs[4];
                         push_face(
                             [
                                 [xf + 0.0, yf + 0.0, zf + 1.0],
@@ -194,6 +203,7 @@ impl Chunk {
                     }
                     // -Z face (back); right = +X, up = +Y
                     if !is_opaque(x as isize, y as isize, z as isize - 1) {
+                        let (u0, u1, v0, v1) = block_uvs[5];
                         push_face(
                             [
                                 [xf + 1.0, yf + 0.0, zf + 0.0],
