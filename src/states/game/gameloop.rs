@@ -5,8 +5,9 @@ use crate::states::game::player::{
     Score,
 };
 use crate::states::game::world::{BlockType, ChunkMap};
+use crate::states::game::{BlueScoreMarker, RedScoreMarker, TPSMarker};
 use crate::states::{
-    GameUpdate,
+    GameUpdate, PostGameUpdate,
     game::{
         network::{OpponentActionsTracker, PlayerActionsTracker},
         player::{PlayerHead, PlayerID},
@@ -54,7 +55,8 @@ impl Plugin for GameLoopPlugin {
                     check_for_deaths,
                     kill_oob_players.after(move_player),
                 ),
-            );
+            )
+            .add_systems(PostGameUpdate, (update_scoreboard, update_tps));
     }
 }
 
@@ -444,4 +446,29 @@ fn kill_oob_players(mut player_query: Query<(&mut Health, &Transform)>) {
             health.0 = 0.0;
         }
     }
+}
+
+fn update_scoreboard(
+    mut red_score: Single<(&mut TextSpan,), With<RedScoreMarker>>,
+    mut blue_score: Single<(&mut TextSpan,), (With<BlueScoreMarker>, Without<RedScoreMarker>)>,
+    score_query: Query<(&PlayerID, &Score)>,
+) {
+    let mut red = 0;
+    let mut blue = 0;
+
+    for (player_id, score) in score_query.iter() {
+        if player_id.0 == 0 {
+            red = score.0;
+        } else {
+            blue = score.0;
+        }
+    }
+
+    red_score.0.0 = red.to_string();
+    blue_score.0.0 = blue.to_string();
+}
+
+fn update_tps(mut tps_text: Single<&mut TextSpan, With<TPSMarker>>, time: Res<Time>) {
+    let tps = 1.0 / time.delta_secs();
+    tps_text.0 = tps.to_string();
 }

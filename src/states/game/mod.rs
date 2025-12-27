@@ -50,6 +50,9 @@ struct RedScoreMarker;
 #[derive(Component)]
 struct BlueScoreMarker;
 
+#[derive(Component)]
+struct TPSMarker;
+
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
@@ -68,10 +71,7 @@ impl Plugin for GamePlugin {
                 (replace_camera, setup, cursor_grab),
             )
             .add_systems(OnExit(AppState::Game), cursor_ungrab)
-            .add_systems(
-                Update,
-                (move_cam, update_scoreboard).run_if(in_state(AppState::Game)),
-            );
+            .add_systems(Update, move_cam.run_if(in_state(AppState::Game)));
     }
 }
 
@@ -96,24 +96,44 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Text2d::new("Score: "),
-        TextFont::default(),
-        children![
-            (
-                RedScoreMarker,
-                TextSpan("0".to_string()),
-                TextColor(Color::srgb_u8(255, 0, 0)),
-            ),
-            (TextSpan(" - ".to_string()),),
-            (
-                BlueScoreMarker,
-                TextSpan("0".to_string()),
-                TextColor(Color::srgb_u8(0, 0, 255)),
-            )
-        ],
         Node {
+            display: Display::Flex,
+            justify_content: JustifyContent::Center,
             height: Val::Percent(100.0),
             width: Val::Percent(100.0),
+            ..default()
+        },
+        children![(
+            Text2d::new("Score: "),
+            TextFont::default(),
+            children![
+                (
+                    RedScoreMarker,
+                    TextSpan("0".to_string()),
+                    TextColor(Color::srgb_u8(255, 0, 0)),
+                ),
+                (TextSpan(" - ".to_string()),),
+                (
+                    BlueScoreMarker,
+                    TextSpan("0".to_string()),
+                    TextColor(Color::srgb_u8(0, 0, 255)),
+                )
+            ],
+            Node {
+                height: Val::Px(90.0),
+                width: Val::Px(180.0),
+                ..default()
+            }
+        )],
+    ));
+
+    commands.spawn((
+        Text2d::new("TPS: "),
+        TextFont::default(),
+        children![(TPSMarker, TextSpan("0".to_string()))],
+        Node {
+            height: Val::Px(90.0),
+            width: Val::Px(90.0),
             ..default()
         },
     ));
@@ -274,24 +294,4 @@ fn move_cam(
     delta.y = 0.0;
 
     transform.translation += delta;
-}
-
-fn update_scoreboard(
-    mut red_score: Single<(&mut TextSpan,), With<RedScoreMarker>>,
-    mut blue_score: Single<(&mut TextSpan,), (With<BlueScoreMarker>, Without<RedScoreMarker>)>,
-    score_query: Query<(&PlayerID, &Score)>,
-) {
-    let mut red = 0;
-    let mut blue = 0;
-
-    for (player_id, score) in score_query.iter() {
-        if player_id.0 == 0 {
-            red = score.0;
-        } else {
-            blue = score.0;
-        }
-    }
-
-    red_score.0.0 = red.to_string();
-    blue_score.0.0 = blue.to_string();
 }

@@ -28,10 +28,10 @@ while True:
                     # if ticks == 1:
                     #     s.send(b'{"PlaceBlock": null}')
                     # else:
-                    s.send(b'{"Jump": null}')
+                    # s.send(b'{"Jump": null}')
                     s.send(b'{"Attack": null}')
-                    if ticks < 140:
-                        s.send(b'{"MoveForward": null}')
+                    # if ticks < 140:
+                    s.send(b'{"MoveForward": null}')
                     s.send(b'{"EndTick": null}')
                     print("Sent actions")
     except ConnectionRefusedError:
