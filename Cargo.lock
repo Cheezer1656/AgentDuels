@@ -318,7 +318,6 @@ dependencies = [
  "bevy",
  "blake3",
  "fastrand",
- "postcard",
  "rand",
  "serde",
  "serde_json",
