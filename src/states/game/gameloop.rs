@@ -1,10 +1,17 @@
 use crate::states::game::network::GameRng;
-use crate::states::game::player::{Health, HurtCooldown, Inventory, PlayerBody, Score, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, SPAWN_POSITIONS, SPAWN_ROTATIONS};
+use crate::states::game::player::{
+    Health, HurtCooldown, Inventory, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_INTERACT_RANGE,
+    PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerBody, SPAWN_POSITIONS, SPAWN_ROTATIONS,
+    Score,
+};
 use crate::states::game::world::{BlockType, ChunkMap};
-use crate::states::{game::{
-    network::{OpponentActionsTracker, PlayerActionsTracker},
-    player::{PlayerHead, PlayerID},
-}, GameUpdate};
+use crate::states::{
+    GameUpdate,
+    game::{
+        network::{OpponentActionsTracker, PlayerActionsTracker},
+        player::{PlayerHead, PlayerID},
+    },
+};
 use agentduels_protocol::{Item, PlayerActions};
 use avian3d::prelude::{LinearVelocity, SpatialQuery, SpatialQueryFilter};
 use bevy::prelude::*;
@@ -38,7 +45,10 @@ impl Plugin for GameLoopPlugin {
                     change_item_in_inv,
                     move_player,
                     place_block.after(change_item_in_inv).after(move_player),
-                    attack.after(change_item_in_inv).after(move_player).after(tick_hurt_cooldown),
+                    attack
+                        .after(change_item_in_inv)
+                        .after(move_player)
+                        .after(tick_hurt_cooldown),
                     tick_hurt_cooldown,
                     check_goal.after(move_player),
                     check_for_deaths,
@@ -67,8 +77,14 @@ fn change_item_in_inv(
 
 fn move_player(
     mut player_query: Query<(&PlayerID, &Transform, &mut LinearVelocity, &Children)>,
-    mut player_body_query: Query<(&mut Transform, &Children), (With<PlayerBody>, Without<PlayerID>)>,
-    mut player_head_query: Query<&mut Transform, (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>)>,
+    mut player_body_query: Query<
+        (&mut Transform, &Children),
+        (With<PlayerBody>, Without<PlayerID>),
+    >,
+    mut player_head_query: Query<
+        &mut Transform,
+        (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
+    >,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
     chunk_map: Single<&ChunkMap>,
@@ -111,7 +127,8 @@ fn move_player(
                 let Ok(mut head_transform) = player_head_query.get_mut(child) else {
                     continue;
                 };
-                head_transform.rotation = Quat::from_rotation_y(-std::f32::consts::PI / 2.0) * pitch;
+                head_transform.rotation =
+                    Quat::from_rotation_y(-std::f32::consts::PI / 2.0) * pitch;
             }
 
             body_transform.rotation = yaw;
@@ -119,7 +136,8 @@ fn move_player(
                 body_transform.rotation *= Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI);
             }
 
-            let p1 = transform.translation - Vec3::new(PLAYER_WIDTH / 2.0, PLAYER_HEIGHT / 2.0, PLAYER_WIDTH / 2.0);
+            let p1 = transform.translation
+                - Vec3::new(PLAYER_WIDTH / 2.0, PLAYER_HEIGHT / 2.0, PLAYER_WIDTH / 2.0);
             let p2 = p1 + Vec3::new(PLAYER_WIDTH, 0.0, 0.0);
             let p3 = p1 + Vec3::new(0.0, 0.0, PLAYER_WIDTH);
             let p4 = p1 + Vec3::new(PLAYER_WIDTH, 0.0, PLAYER_WIDTH);
@@ -150,7 +168,10 @@ fn move_player(
 fn place_block(
     mut player_query: Query<(&PlayerID, &mut Inventory, &Transform, &Children)>,
     player_body_query: Query<(&Transform, &Children), (With<PlayerBody>, Without<PlayerID>)>,
-    player_head_query: Query<&Transform, (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>)>,
+    player_head_query: Query<
+        &Transform,
+        (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
+    >,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
     mut chunk_map: Single<&mut ChunkMap>,
@@ -174,16 +195,20 @@ fn place_block(
                         let Ok(head_transform) = player_head_query.get(child) else {
                             continue;
                         };
-                        let origin = transform.translation + Vec3::new(0.0, -0.9 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
+                        let origin =
+                            transform.translation + Vec3::new(0.0, -0.9 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
                         let mut pos = origin;
-                        let dir_inv =
-                            1.0 / (body_transform.rotation * head_transform.rotation).mul_vec3(-Vec3::Z);
+                        let dir_inv = 1.0
+                            / (body_transform.rotation * head_transform.rotation)
+                                .mul_vec3(-Vec3::Z);
 
                         for i in 0..50 {
                             commands.spawn((
                                 Mesh3d(meshes.add(Cuboid::new(0.05, 0.05, 0.05))),
                                 MeshMaterial3d(materials.add(Color::srgb_u8(243, 255, 255))),
-                                Transform::from_translation(origin + 1.0 / dir_inv * (i as f32 * 0.1)),
+                                Transform::from_translation(
+                                    origin + 1.0 / dir_inv * (i as f32 * 0.1),
+                                ),
                             ));
                         }
 
@@ -231,7 +256,7 @@ fn place_block(
                             } else {
                                 Vec3::new(0.0, 0.0, -step.z)
                             })
-                                .normalize();
+                            .normalize();
 
                             let block_pos = (floored_pos + face).as_ivec3();
                             chunk_map
@@ -257,7 +282,10 @@ fn place_block(
 fn attack(
     player_query: Query<(Entity, &PlayerID, &Transform, &Children)>,
     player_body_query: Query<(&Transform, &Children), (With<PlayerBody>, Without<PlayerID>)>,
-    player_head_query: Query<&Transform, (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>)>,
+    player_head_query: Query<
+        &Transform,
+        (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
+    >,
     mut player_query_2: Query<(&mut Health, &mut HurtCooldown), With<PlayerID>>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
@@ -278,21 +306,35 @@ fn attack(
                     let Ok(head_transform) = player_head_query.get(child) else {
                         continue;
                     };
-                    let origin = transform.translation + Vec3::new(0.0, -0.9 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
-                    let dir = (body_transform.rotation * head_transform.rotation).mul_vec3(-Vec3::Z);
+                    let origin =
+                        transform.translation + Vec3::new(0.0, -0.9 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
+                    let dir =
+                        (body_transform.rotation * head_transform.rotation).mul_vec3(-Vec3::Z);
 
-                    let hits = spatial_query.ray_hits(origin, Dir3::new(dir).unwrap(), PLAYER_INTERACT_RANGE, 10, true, &SpatialQueryFilter::default());
+                    let hits = spatial_query.ray_hits(
+                        origin,
+                        Dir3::new(dir).unwrap(),
+                        PLAYER_INTERACT_RANGE,
+                        10,
+                        true,
+                        &SpatialQueryFilter::default(),
+                    );
                     for hit in hits.iter() {
                         if hit.entity == entity {
                             continue;
                         }
-                        if let Ok((mut health, mut hurt_cooldown)) = player_query_2.get_mut(hit.entity) {
+                        if let Ok((mut health, mut hurt_cooldown)) =
+                            player_query_2.get_mut(hit.entity)
+                        {
                             if hurt_cooldown.0 > 0 {
                                 continue;
                             }
                             health.0 -= 5.0;
                             hurt_cooldown.0 = 10;
-                            println!("Player {:?} attacked entity {:?}, new health: {}", entity, hit.entity, health.0);
+                            println!(
+                                "Player {:?} attacked entity {:?}, new health: {}",
+                                entity, hit.entity, health.0
+                            );
                             break;
                         }
                     }
@@ -310,7 +352,11 @@ fn tick_hurt_cooldown(mut player_query: Query<&mut HurtCooldown>) {
 
 /// Check if any player has reached their goal area
 /// Only one player can score at a time; if multiple are in the goal area, one is chosen at random
-fn check_goal(player_query: Query<(Entity, &PlayerID, &Transform)>, rng: Res<GameRng>, mut commands: Commands) {
+fn check_goal(
+    player_query: Query<(Entity, &PlayerID, &Transform)>,
+    rng: Res<GameRng>,
+    mut commands: Commands,
+) {
     let mut entities = Vec::new();
     for (entity, player_id, transform) in player_query.iter() {
         let pos = transform.translation.floor().as_ivec3();
@@ -360,8 +406,14 @@ fn reset_health_after_death(event: On<DeathEvent>, mut player_query: Query<&mut 
 fn reset_player_position_on_death(
     event: On<DeathEvent>,
     mut player_query: Query<(&PlayerID, &mut Transform, &Children)>,
-    mut player_body_query: Query<(&mut Transform, &Children), (With<PlayerBody>, Without<PlayerID>)>,
-    mut player_head_query: Query<&mut Transform, (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>)>,
+    mut player_body_query: Query<
+        (&mut Transform, &Children),
+        (With<PlayerBody>, Without<PlayerID>),
+    >,
+    mut player_head_query: Query<
+        &mut Transform,
+        (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
+    >,
 ) {
     let (player_id, mut transform, children) = player_query.get_mut(event.0).unwrap();
     transform.translation = SPAWN_POSITIONS[player_id.0 as usize];

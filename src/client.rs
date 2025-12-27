@@ -52,7 +52,11 @@ impl GameConnection {
             packet.protocol_version
         );
 
-        Ok(GameConnection { socket, codec, match_id })
+        Ok(GameConnection {
+            socket,
+            codec,
+            match_id,
+        })
     }
 
     pub fn send_packet(&mut self, packet: Packet) -> anyhow::Result<()> {

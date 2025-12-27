@@ -1,5 +1,7 @@
 use std::io::{Read, Write};
 
+use crate::states::PostGameUpdate;
+use crate::states::game::GameUpdate;
 use crate::{ControlMsgC2S, ControlMsgS2C, ControlServer, client::GameConnection};
 use agentduels_protocol::{
     Packet,
@@ -7,8 +9,6 @@ use agentduels_protocol::{
 };
 use bevy::prelude::*;
 use fastrand::Rng;
-use crate::states::PostGameUpdate;
-use crate::states::game::GameUpdate;
 
 #[derive(Resource, Default, Debug)]
 struct NetworkState {
