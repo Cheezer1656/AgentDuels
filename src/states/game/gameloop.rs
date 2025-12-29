@@ -1,8 +1,8 @@
 use crate::states::game::network::GameRng;
 use crate::states::game::player::{
-    Health, HurtCooldown, Inventory, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_INTERACT_RANGE,
-    PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerBody, SPAWN_POSITIONS, SPAWN_ROTATIONS,
-    Score,
+    Health, HurtCooldown, Inventory, PLAYER_ANIMATION_INDICES, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT,
+    PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerBody,
+    SPAWN_POSITIONS, SPAWN_ROTATIONS, Score,
 };
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::game::{BlueScoreMarker, RedScoreMarker, TPSMarker};
@@ -54,6 +54,7 @@ impl Plugin for GameLoopPlugin {
                     check_goal.after(move_player),
                     check_for_deaths,
                     kill_oob_players.after(move_player),
+                    update_animation.after(move_player),
                 ),
             )
             .add_systems(PostGameUpdate, (update_scoreboard, update_tps));
@@ -79,21 +80,19 @@ fn change_item_in_inv(
 
 fn move_player(
     mut player_query: Query<(&PlayerID, &Transform, &mut LinearVelocity, &Children)>,
-    mut player_body_query: Query<
-        (&mut Transform, &Children),
-        (With<PlayerBody>, Without<PlayerID>),
-    >,
+    mut player_body_query: Query<&mut Transform, (With<PlayerBody>, Without<PlayerID>)>,
     mut player_head_query: Query<
         &mut Transform,
         (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
     >,
+    children_query: Query<&Children>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
     chunk_map: Single<&ChunkMap>,
 ) {
     for (player_id, transform, mut vel, children) in player_query.iter_mut() {
         for child in children.iter() {
-            let Ok((mut body_transform, body_children)) = player_body_query.get_mut(child) else {
+            let Ok(mut body_transform) = player_body_query.get_mut(child) else {
                 continue;
             };
 
@@ -119,18 +118,15 @@ fn move_player(
 
             let yaw = Quat::from_axis_angle(Vec3::Y, actions.rotation[0]);
             let pitch = Quat::from_axis_angle(
-                Vec3::X,
-                actions.rotation[1].clamp(
-                    -std::f32::consts::FRAC_PI_2 + 0.01,
-                    std::f32::consts::FRAC_PI_2 - 0.01,
-                ),
+                -Vec3::X,
+                actions.rotation[1]
+                    .clamp(-std::f32::consts::FRAC_PI_2, std::f32::consts::FRAC_PI_2),
             );
-            for child in body_children.iter() {
+            for child in children_query.iter_descendants(child) {
                 let Ok(mut head_transform) = player_head_query.get_mut(child) else {
                     continue;
                 };
-                head_transform.rotation =
-                    Quat::from_rotation_y(-std::f32::consts::PI / 2.0) * pitch;
+                head_transform.rotation = pitch;
             }
 
             body_transform.rotation = yaw;
@@ -169,11 +165,12 @@ fn move_player(
 
 fn place_block(
     mut player_query: Query<(&PlayerID, &mut Inventory, &Transform, &Children)>,
-    player_body_query: Query<(&Transform, &Children), (With<PlayerBody>, Without<PlayerID>)>,
+    player_body_query: Query<&Transform, (With<PlayerBody>, Without<PlayerID>)>,
     player_head_query: Query<
         &Transform,
         (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
     >,
+    children_query: Query<&Children>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
     mut chunk_map: Single<&mut ChunkMap>,
@@ -188,21 +185,23 @@ fn place_block(
             opp_actions.0
         };
         for child in children.iter() {
-            let Ok((body_transform, children)) = player_body_query.get(child) else {
+            let Ok(body_transform) = player_body_query.get(child) else {
                 continue;
             };
             if actions.is_set(PlayerActions::PLACE_BLOCK) {
                 if inv.get_selected_item() == Item::Block && inv.get_count(Item::Block) > 0 {
-                    for child in children.iter() {
+                    for child in children_query.iter_descendants(child) {
                         let Ok(head_transform) = player_head_query.get(child) else {
                             continue;
                         };
-                        let origin =
-                            transform.translation + Vec3::new(0.0, -0.9 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
+                        let origin = transform.translation
+                            + Vec3::new(0.0, -PLAYER_HEIGHT / 2.0 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
                         let mut pos = origin;
                         let dir_inv = 1.0
-                            / (body_transform.rotation * head_transform.rotation)
-                                .mul_vec3(-Vec3::Z);
+                            / (body_transform.rotation
+                                * Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)
+                                * head_transform.rotation)
+                                .mul_vec3(Vec3::Z);
 
                         for i in 0..50 {
                             commands.spawn((
@@ -283,11 +282,12 @@ fn place_block(
 
 fn attack(
     player_query: Query<(Entity, &PlayerID, &Transform, &Children)>,
-    player_body_query: Query<(&Transform, &Children), (With<PlayerBody>, Without<PlayerID>)>,
+    player_body_query: Query<&Transform, (With<PlayerBody>, Without<PlayerID>)>,
     player_head_query: Query<
         &Transform,
         (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
     >,
+    children_query: Query<&Children>,
     mut player_query_2: Query<(&mut Health, &mut HurtCooldown), With<PlayerID>>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
@@ -301,17 +301,19 @@ fn attack(
         };
         if actions.is_set(PlayerActions::ATTACK) {
             for child in children.iter() {
-                let Ok((body_transform, children)) = player_body_query.get(child) else {
+                let Ok(body_transform) = player_body_query.get(child) else {
                     continue;
                 };
-                for child in children.iter() {
+                for child in children_query.iter_descendants(child) {
                     let Ok(head_transform) = player_head_query.get(child) else {
                         continue;
                     };
-                    let origin =
-                        transform.translation + Vec3::new(0.0, -0.9 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
-                    let dir =
-                        (body_transform.rotation * head_transform.rotation).mul_vec3(-Vec3::Z);
+                    let origin = transform.translation
+                        + Vec3::new(0.0, -PLAYER_HEIGHT / 2.0 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
+                    let dir = (body_transform.rotation
+                        * Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)
+                        * head_transform.rotation)
+                        .mul_vec3(Vec3::Z);
 
                     let hits = spatial_query.ray_hits(
                         origin,
@@ -427,7 +429,9 @@ fn reset_player_position_on_death(
         body_transform.rotation = Quat::from_rotation_y(SPAWN_ROTATIONS[player_id.0 as usize]);
 
         for child in body_children.iter() {
-            let mut head_transform = player_head_query.get_mut(child).unwrap();
+            let Ok(mut head_transform) = player_head_query.get_mut(child) else {
+                continue;
+            };
             head_transform.rotation = Quat::IDENTITY;
         }
     }
@@ -444,6 +448,30 @@ fn kill_oob_players(mut player_query: Query<(&mut Health, &Transform)>) {
     for (mut health, transform) in player_query.iter_mut() {
         if transform.translation.y < -10.0 {
             health.0 = 0.0;
+        }
+    }
+}
+
+fn update_animation(
+    player_query: Query<(Entity, &LinearVelocity), With<PlayerID>>,
+    children: Query<&Children>,
+    mut anim_player_query: Query<&mut AnimationPlayer>,
+) {
+    for (entity, vel) in player_query.iter() {
+        for child in children.iter_descendants(entity) {
+            let Ok(mut anim_player) = anim_player_query.get_mut(child) else {
+                continue;
+            };
+            let animation = anim_player
+                .animation_mut(PLAYER_ANIMATION_INDICES.walk.into())
+                .unwrap();
+            if vel.x.abs() < 0.1 && vel.z.abs() < 0.1 {
+                if !animation.is_paused() {
+                    animation.rewind().pause();
+                }
+            } else if animation.is_paused() {
+                animation.resume();
+            }
         }
     }
 }

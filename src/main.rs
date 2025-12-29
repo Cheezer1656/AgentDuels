@@ -1,5 +1,8 @@
+use crate::states::{GamePlugin, JoiningPlugin, MainMenuPlugin};
 use agentduels_protocol::{Item, PlayerActions};
 use bevy::prelude::*;
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use serde::{Deserialize, Serialize};
 use std::{
     io::Read,
@@ -7,8 +10,6 @@ use std::{
     sync::{Arc, Mutex},
     thread,
 };
-
-use crate::states::{GamePlugin, JoiningPlugin, MainMenuPlugin};
 
 mod client;
 mod states;
@@ -61,7 +62,11 @@ async fn main() {
     listener.set_nonblocking(true).unwrap();
 
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins((
+            DefaultPlugins.set(ImagePlugin::default_nearest()),
+            EguiPlugin::default(),
+            WorldInspectorPlugin::new(),
+        ))
         .insert_resource(AmbientLight {
             brightness: 400.0,
             ..default()

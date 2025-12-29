@@ -21,17 +21,17 @@ while True:
                     msg = msg["TickStart"]
                     if ticks == 1:
                         s.send(b'{"SelectItem": "Block"}')
-                    # if ticks == 1:
-                    #     s.send(f'{{"Rotate": [1.5707963, -0.6]}}'.encode())
-                    # else:
-                    s.send(f'{{"Rotate": [0.001, 0.0]}}'.encode())
-                    # if ticks == 1:
-                    #     s.send(b'{"PlaceBlock": null}')
+                    if ticks == 1:
+                        s.send(f'{{"Rotate": [1.5707963, -0.6]}}'.encode())
+                    else:
+                        s.send(f'{{"Rotate": [0.0, 0.0]}}'.encode())
+                    if ticks == 1:
+                        s.send(b'{"PlaceBlock": null}')
                     # else:
                     # s.send(b'{"Jump": null}')
                     s.send(b'{"Attack": null}')
-                    # if ticks < 140:
-                    s.send(b'{"MoveForward": null}')
+                    if 30 < ticks < 154:
+                        s.send(b'{"MoveForward": null}')
                     s.send(b'{"EndTick": null}')
                     print("Sent actions")
     except ConnectionRefusedError:

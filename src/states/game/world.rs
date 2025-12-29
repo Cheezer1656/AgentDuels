@@ -39,7 +39,7 @@ impl BlockType {
                 let mut uvs = [(0.0, 0.25, 0.25, 0.0); 6];
                 uvs[2] = (0.25, 0.5, 0.25, 0.0); // top
                 uvs
-            },
+            }
             BlockType::Dirt => [(0.5, 0.75, 0.25, 0.0); 6],
             BlockType::Stone => [(0.75, 1.0, 0.25, 0.0); 6],
             BlockType::RedBlock => [(0.25, 0.0, 0.5, 0.25); 6],

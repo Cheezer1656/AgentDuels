@@ -1,6 +1,7 @@
 use crate::states::game::gameloop::GOAL_BOUNDS;
 use crate::states::game::player::{
-    PLAYER_HEIGHT, PLAYER_WIDTH, PlayerBody, PlayerBundle, SPAWN_POSITIONS, SPAWN_ROTATIONS, Score,
+    PLAYER_ANIMATION_INDICES, PLAYER_HEIGHT, PLAYER_WIDTH, PlayerBody, PlayerBundle,
+    SPAWN_POSITIONS, SPAWN_ROTATIONS,
 };
 use crate::{
     AppState, AutoDespawn,
@@ -19,12 +20,14 @@ use avian3d::{
         Restitution, RigidBody,
     },
 };
+use bevy::scene::SceneInstanceReady;
 use bevy::{
     ecs::schedule::ScheduleLabel,
     input::mouse::MouseMotion,
     prelude::*,
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
+use bevy_inspector_egui::bevy_egui;
 
 mod gameloop;
 mod network;
@@ -71,7 +74,10 @@ impl Plugin for GamePlugin {
                 (replace_camera, setup, cursor_grab),
             )
             .add_systems(OnExit(AppState::Game), cursor_ungrab)
-            .add_systems(Update, move_cam.run_if(in_state(AppState::Game)));
+            .add_systems(
+                Update,
+                (toggle_cursor_grab, move_cam).run_if(in_state(AppState::Game)),
+            );
     }
 }
 
@@ -87,13 +93,14 @@ fn replace_camera(mut commands: Commands, camera_query: Query<Entity, With<Camer
         },
         Msaa::Off,
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        bevy_egui::PrimaryEguiContext,
     ));
 }
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+    assets: Res<AssetServer>,
 ) {
     commands.spawn((
         Node {
@@ -194,53 +201,92 @@ fn setup(
 
     commands.spawn((chunkmap, AutoDespawn(AppState::Game)));
 
-    let player_body_mesh = meshes.add(Cuboid::new(PLAYER_WIDTH, 1.3, PLAYER_WIDTH));
-    let player_head_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
-    let player_direction_mesh = meshes.add(Cuboid::new(0.1, 0.1, 1.0));
-
     for i in 0..2_i32 {
-        let mut body_transform = Transform::from_xyz(0.0, -0.25, 0.0);
+        let mut body_transform = Transform::from_xyz(0.0, -0.9, 0.0);
         body_transform.rotation = Quat::from_rotation_y(SPAWN_ROTATIONS[i as usize]);
 
-        commands.spawn((
-            PlayerBundle {
-                id: PlayerID(i as u16),
-                transform: Transform::from_translation(SPAWN_POSITIONS[i as usize]),
-                ..default()
-            },
-            RigidBody::Dynamic,
-            Collider::cuboid(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_WIDTH),
-            CollisionLayers::new(CollisionLayer::Entity, [CollisionLayer::World]),
-            LockedAxes::ROTATION_LOCKED,
-            Friction::new(0.0),
-            Restitution::new(0.0),
-            LinearDamping(2.0),
-            GravityScale(2.0),
-            Visibility::default(),
-            AutoDespawn(AppState::Game),
-            children![(
-                PlayerBody,
-                Mesh3d(player_body_mesh.clone()),
-                MeshMaterial3d(materials.add(if i == 0 {
-                    Color::srgb_u8(237, 28, 36)
-                } else {
-                    Color::srgb_u8(47, 54, 153)
-                })),
-                body_transform,
-                children![(
-                    PlayerHead,
-                    Mesh3d(player_head_mesh.clone()),
-                    MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
-                    Transform::from_xyz(0.0, PLAYER_HEIGHT / 2.0, 0.0)
-                        .with_rotation(Quat::from_rotation_y(-std::f32::consts::PI / 2.0)),
-                    children![(
-                        Mesh3d(player_direction_mesh.clone()),
-                        MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
-                        Transform::from_xyz(0.0, 0.0, -0.25)
-                    )],
-                )]
-            )],
-        ));
+        let gltf_path = format!("models/player{}.gltf#Scene0", i);
+        let (mut graph, _) = AnimationGraph::from_clip(
+            assets.load(GltfAssetLabel::Animation(0).from_asset(gltf_path.clone())),
+        );
+        let _ = graph.add_clip(
+            assets.load(GltfAssetLabel::Animation(1).from_asset(gltf_path.clone())),
+            1.0,
+            PLAYER_ANIMATION_INDICES.root.into(),
+        );
+
+        commands
+            .spawn((
+                PlayerBundle {
+                    id: PlayerID(i as u16),
+                    transform: Transform::from_translation(SPAWN_POSITIONS[i as usize]),
+                    ..default()
+                },
+                RigidBody::Dynamic,
+                Collider::cuboid(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_WIDTH),
+                CollisionLayers::new(CollisionLayer::Entity, [CollisionLayer::World]),
+                LockedAxes::ROTATION_LOCKED,
+                Friction::new(0.0),
+                Restitution::new(0.0),
+                LinearDamping(2.0),
+                GravityScale(2.0),
+                Visibility::default(),
+                AutoDespawn(AppState::Game),
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        AnimationGraphHandle(graphs.add(graph)),
+                        SceneRoot(assets.load(gltf_path)),
+                        PlayerBody,
+                        body_transform,
+                    ))
+                    .observe(play_animation_on_ready)
+                    .observe(mark_head_on_ready);
+            });
+    }
+}
+
+fn play_animation_on_ready(
+    scene_ready: On<SceneInstanceReady>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    graph_handles: Query<&AnimationGraphHandle>,
+    mut anim_players: Query<&mut AnimationPlayer>,
+) {
+    if let Ok(graph_handle) = graph_handles.get(scene_ready.entity) {
+        for child in children.iter_descendants(scene_ready.entity) {
+            if let Ok(mut anim_player) = anim_players.get_mut(child) {
+                anim_player
+                    .play(PLAYER_ANIMATION_INDICES.idle.into())
+                    .repeat();
+                anim_player
+                    .play(PLAYER_ANIMATION_INDICES.walk.into())
+                    .repeat()
+                    .pause();
+
+                commands
+                    .entity(child)
+                    .insert(AnimationGraphHandle(graph_handle.0.clone()));
+            }
+        }
+    }
+}
+
+fn mark_head_on_ready(
+    scene_ready: On<SceneInstanceReady>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    mut names: Query<(Entity, &mut Name)>,
+) {
+    for child in children.iter_descendants(scene_ready.entity) {
+        let Ok((entity, name)) = names.get_mut(child) else {
+            continue;
+        };
+        if name.as_str() != "head" {
+            continue;
+        }
+        commands.entity(entity).insert(PlayerHead);
     }
 }
 
@@ -254,11 +300,30 @@ fn cursor_ungrab(mut cursor_opts: Single<&mut CursorOptions, With<PrimaryWindow>
     cursor_opts.visible = true;
 }
 
+fn toggle_cursor_grab(
+    mut cursor_opts: Single<&mut CursorOptions, With<PrimaryWindow>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        if cursor_opts.grab_mode == CursorGrabMode::None {
+            cursor_opts.grab_mode = CursorGrabMode::Confined;
+            cursor_opts.visible = false;
+        } else {
+            cursor_opts.grab_mode = CursorGrabMode::None;
+            cursor_opts.visible = true;
+        }
+    }
+}
+
 fn move_cam(
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    cursor_opts: Single<&CursorOptions, With<PrimaryWindow>>,
     mut mouse_motion: MessageReader<MouseMotion>,
     mut camera: Query<(&mut Transform, &Camera3d)>,
 ) {
+    if cursor_opts.grab_mode == CursorGrabMode::None {
+        return;
+    }
     let Ok((mut transform, _)) = camera.single_mut() else {
         return;
     };
