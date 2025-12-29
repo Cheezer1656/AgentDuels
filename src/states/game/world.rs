@@ -68,7 +68,7 @@ impl Chunk {
             self.blocks[x][z][y] = block_type;
             return Ok(());
         }
-        return Err(());
+        Err(())
     }
     pub fn get_block(&self, x: usize, y: usize, z: usize) -> BlockType {
         if x < CHUNK_WIDTH && y < CHUNK_HEIGHT && z < CHUNK_DEPTH {
@@ -255,9 +255,9 @@ impl ChunkMap {
             .is_ok()
         {
             chunk.dirty = true;
-            return Ok(());
+            Ok(())
         } else {
-            return Err(());
+            Err(())
         }
     }
     pub fn get_block(&self, pos: IVec3) -> BlockType {
