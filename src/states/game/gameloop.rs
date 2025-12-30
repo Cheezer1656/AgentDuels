@@ -1,3 +1,4 @@
+use crate::AppState;
 use crate::states::game::network::GameRng;
 use crate::states::game::player::{
     Health, HurtCooldown, Inventory, PLAYER_ANIMATION_INDICES, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT,
@@ -7,7 +8,7 @@ use crate::states::game::player::{
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::game::{BlueScoreMarker, RedScoreMarker, TPSMarker};
 use crate::states::{
-    GameUpdate, PostGameUpdate,
+    GameResults, GameUpdate, PostGameUpdate,
     game::{
         network::{OpponentActionsTracker, PlayerActionsTracker},
         player::{PlayerHead, PlayerID},
@@ -52,6 +53,7 @@ impl Plugin for GameLoopPlugin {
                         .after(tick_hurt_cooldown),
                     tick_hurt_cooldown,
                     check_goal.after(move_player),
+                    check_for_win.after(check_goal),
                     check_for_deaths,
                     kill_oob_players.after(move_player),
                     update_animation.after(move_player),
@@ -380,6 +382,17 @@ fn update_score(event: On<GoalEvent>, mut player_query: Query<&mut Score>) {
         return;
     };
     score.0 += 1;
+}
+
+fn check_for_win(player_query: Query<(&PlayerID, &Score), Changed<Score>>, mut commands: Commands) {
+    for (player_id, score) in player_query.iter() {
+        if score.0 >= 5 {
+            commands.insert_resource(GameResults {
+                winner: player_id.0,
+            });
+            commands.set_state(AppState::EndMenu);
+        }
+    }
 }
 
 // Use DeathEvent to reset players after a goal is scored

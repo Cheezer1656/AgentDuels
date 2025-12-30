@@ -69,10 +69,7 @@ impl Plugin for GamePlugin {
                 PhysicsPlugins::new(PostGameUpdate),
                 PhysicsDebugPlugin::default(),
             ))
-            .add_systems(
-                OnEnter(AppState::Game),
-                (replace_camera, setup, cursor_grab),
-            )
+            .add_systems(OnEnter(AppState::Game), (setup, cursor_grab))
             .add_systems(OnExit(AppState::Game), cursor_ungrab)
             .add_systems(
                 Update,
@@ -81,10 +78,11 @@ impl Plugin for GamePlugin {
     }
 }
 
-fn replace_camera(mut commands: Commands, camera_query: Query<Entity, With<Camera2d>>) {
-    for entity in camera_query.iter() {
-        commands.entity(entity).despawn();
-    }
+fn setup(
+    mut commands: Commands,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+    assets: Res<AssetServer>,
+) {
     commands.spawn((
         Camera3d::default(),
         Camera {
@@ -94,15 +92,11 @@ fn replace_camera(mut commands: Commands, camera_query: Query<Entity, With<Camer
         Msaa::Off,
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         bevy_egui::PrimaryEguiContext,
+        AutoDespawn(AppState::Game),
     ));
-}
 
-fn setup(
-    mut commands: Commands,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
-    assets: Res<AssetServer>,
-) {
     commands.spawn((
+        AutoDespawn(AppState::Game),
         Node {
             display: Display::Flex,
             justify_content: JustifyContent::Center,
@@ -135,6 +129,7 @@ fn setup(
     ));
 
     commands.spawn((
+        AutoDespawn(AppState::Game),
         Text2d::new("TPS: "),
         TextFont::default(),
         children![(TPSMarker, TextSpan("0".to_string()))],

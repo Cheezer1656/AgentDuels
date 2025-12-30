@@ -24,8 +24,18 @@ impl Plugin for MainMenuPlugin {
     }
 }
 
-fn setup(mut commands: Commands) {
-    commands.spawn(Camera2d::default());
+fn setup(mut commands: Commands, server: Option<Res<ControlServer>>) {
+    commands.spawn((Camera2d::default(), AutoDespawn(AppState::MainMenu)));
+
+    let (text, color) = if let Some(server) = server {
+        if server.client.is_some() {
+            ("Client connected", Srgba::GREEN)
+        } else {
+            ("No client connected", Srgba::RED)
+        }
+    } else {
+        ("No client connected", Srgba::RED)
+    };
 
     commands.spawn((
         AutoDespawn(AppState::MainMenu),
@@ -63,8 +73,8 @@ fn setup(mut commands: Commands) {
             ),
             (
                 ConnectionText,
-                Text::new("No client connected"),
-                TextColor(Color::Srgba(Srgba::RED)),
+                Text::new(text),
+                TextColor(Color::Srgba(color)),
             )
         ],
     ));
@@ -82,7 +92,7 @@ fn button_press(
 }
 
 fn update_connection_text(
-    server: ResMut<ControlServer>,
+    server: Res<ControlServer>,
     mut text_query: Query<(&mut Text, &mut TextColor), With<ConnectionText>>,
 ) {
     if let Ok((mut text, mut color)) = text_query.single_mut() {

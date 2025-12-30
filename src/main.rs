@@ -1,4 +1,4 @@
-use crate::states::{GamePlugin, JoiningPlugin, MainMenuPlugin};
+use crate::states::{EndMenuPlugin, GamePlugin, JoiningPlugin, MainMenuPlugin};
 use agentduels_protocol::{Item, PlayerActions};
 use bevy::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
@@ -21,6 +21,7 @@ enum AppState {
     MainMenu,
     Joining,
     Game,
+    EndMenu,
 }
 
 #[derive(Component)]
@@ -72,7 +73,7 @@ async fn main() {
             ..default()
         })
         .insert_state(AppState::MainMenu)
-        .add_plugins((MainMenuPlugin, JoiningPlugin, GamePlugin))
+        .add_plugins((MainMenuPlugin, JoiningPlugin, EndMenuPlugin, GamePlugin))
         .insert_resource(ControlServer {
             listener,
             client: None,
@@ -82,6 +83,7 @@ async fn main() {
         .add_systems(OnExit(AppState::Joining), cleanup_state)
         .add_systems(OnExit(AppState::MainMenu), cleanup_state)
         .add_systems(OnExit(AppState::Game), cleanup_state)
+        .add_systems(OnExit(AppState::EndMenu), cleanup_state)
         .run();
 }
 
