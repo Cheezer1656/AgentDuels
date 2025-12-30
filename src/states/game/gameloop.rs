@@ -204,15 +204,15 @@ fn place_block(
                                 * head_transform.rotation)
                                 .mul_vec3(Vec3::Z);
 
-                        for i in 0..50 {
-                            commands.spawn((
-                                Mesh3d(meshes.add(Cuboid::new(0.05, 0.05, 0.05))),
-                                MeshMaterial3d(materials.add(Color::srgb_u8(243, 255, 255))),
-                                Transform::from_translation(
-                                    origin + 1.0 / dir_inv * (i as f32 * 0.1),
-                                ),
-                            ));
-                        }
+                        // for i in 0..50 {
+                        //     commands.spawn((
+                        //         Mesh3d(meshes.add(Cuboid::new(0.05, 0.05, 0.05))),
+                        //         MeshMaterial3d(materials.add(Color::srgb_u8(243, 255, 255))),
+                        //         Transform::from_translation(
+                        //             origin + 1.0 / dir_inv * (i as f32 * 0.1),
+                        //         ),
+                        //     ));
+                        // }
 
                         let step = dir_inv.map(|a| a.signum());
                         let select = dir_inv.map(|a| 0.5 + 0.5 * a.signum());
