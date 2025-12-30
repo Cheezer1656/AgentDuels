@@ -41,6 +41,7 @@ impl Plugin for GameLoopPlugin {
             .add_observer(reset_health_after_death)
             .add_observer(reset_player_position_on_death)
             .add_observer(reset_player_inv_on_death)
+            .init_resource::<LastTick>()
             .add_systems(
                 GameUpdate,
                 (
@@ -540,7 +541,12 @@ fn update_scoreboard(
     blue_score.0.0 = blue.to_string();
 }
 
-fn update_tps(mut tps_text: Single<&mut TextSpan, With<TPSMarker>>, time: Res<Time>) {
-    let tps = 1.0 / time.delta_secs();
+#[derive(Resource, Default)]
+struct LastTick(f32);
+
+fn update_tps(mut tps_text: Single<&mut TextSpan, With<TPSMarker>>, mut last_tick: ResMut<LastTick>, time: Res<Time>) {
+    let tps = 1.0 / (time.elapsed_secs() - last_tick.0);
+    last_tick.0 = time.elapsed_secs();
+
     tps_text.0 = tps.to_string();
 }

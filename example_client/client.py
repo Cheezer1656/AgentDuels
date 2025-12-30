@@ -9,6 +9,7 @@ while True:
             s.connect(("127.0.0.1", 8082))
             print("Connected!")
             start = time()
+            last_tick = time()
             while True:
                 response = s.recv(1024)
                 if response == b"":
@@ -35,12 +36,10 @@ while True:
                     if ticks == 80:
                         s.send(b'{"SelectItem": "Bow"}')
                     s.send(b'{"EndTick": null}')
-                    print("Sent actions")
+                    print(f"Sent actions | TPS: {1.0 / (time()-last_tick)} | Old TPS: {ticks/(time()-start)}")
+                    last_tick = time()
     except ConnectionRefusedError:
         pass
     except ConnectionResetError:
         pass
-    except KeyboardInterrupt:
-        print(ticks/(time()-start))
-        break
     sleep(1)
