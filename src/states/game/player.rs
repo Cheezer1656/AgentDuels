@@ -35,6 +35,9 @@ pub struct PlayerBody;
 pub struct PlayerHead;
 
 #[derive(Component)]
+pub struct PlayerHand;
+
+#[derive(Component)]
 pub struct Health(pub f32);
 
 impl Default for Health {
@@ -51,7 +54,6 @@ pub struct HurtCooldown(pub u8);
 pub struct Inventory {
     contents: HashMap<Item, u16>,
     selected: Item,
-    changed: bool,
 }
 
 impl Inventory {
@@ -61,7 +63,6 @@ impl Inventory {
 
     pub fn add_item(&mut self, item: Item, amount: u16) {
         *self.contents.entry(item).or_insert(0) += amount;
-        self.changed = true;
     }
 
     pub fn remove_item(&mut self, item: Item, amount: u16) {
@@ -71,15 +72,10 @@ impl Inventory {
 
     pub fn select_item(&mut self, item: Item) {
         self.selected = item;
-        self.changed = true;
     }
 
     pub fn get_selected_item(&self) -> Item {
         self.selected
-    }
-
-    pub fn has_changed(&self) -> bool {
-        self.changed
     }
 }
 
@@ -97,7 +93,6 @@ impl Default for Inventory {
         Inventory {
             contents,
             selected: Item::Sword,
-            changed: false,
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::states::game::network::GameRng;
 use crate::states::game::player::{
     Health, HurtCooldown, Inventory, PLAYER_ANIMATION_INDICES, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT,
-    PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerBody,
+    PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerBody, PlayerHand,
     SPAWN_POSITIONS, SPAWN_ROTATIONS, Score,
 };
 use crate::states::game::world::{BlockType, ChunkMap};
@@ -55,6 +55,7 @@ impl Plugin for GameLoopPlugin {
                     check_for_deaths,
                     kill_oob_players.after(move_player),
                     update_animation.after(move_player),
+                    update_item_model.after(change_item_in_inv),
                 ),
             )
             .add_systems(PostGameUpdate, (update_scoreboard, update_tps));
@@ -472,6 +473,36 @@ fn update_animation(
             } else if animation.is_paused() {
                 animation.resume();
             }
+        }
+    }
+}
+
+fn update_item_model(
+    player_query: Query<(Entity, &Inventory), Changed<Inventory>>,
+    player_hand_query: Query<Entity, With<PlayerHand>>,
+    children: Query<&Children>,
+    assets: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    for (entity, inv) in player_query.iter() {
+        println!(
+            "Updating item model for entity {:?} to {:?}",
+            entity,
+            inv.get_selected_item()
+        );
+        for child in children.iter_descendants(entity) {
+            let Ok(entity) = player_hand_query.get(child) else {
+                continue;
+            };
+            let gltf_path = format!(
+                "models/items/{}.gltf#Scene0",
+                inv.get_selected_item().to_string()
+            );
+            let new_model_entity = commands.spawn(SceneRoot(assets.load(gltf_path))).id();
+            commands
+                .entity(entity)
+                .despawn_children()
+                .add_child(new_model_entity);
         }
     }
 }

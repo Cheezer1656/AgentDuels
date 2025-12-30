@@ -21,6 +21,19 @@ pub enum Item {
     GoldenApple,
 }
 
+impl Item {
+    pub fn to_string(&self) -> &'static str {
+        match self {
+            Item::Sword => "Sword",
+            Item::Pickaxe => "Pickaxe",
+            Item::Bow => "Bow",
+            Item::Arrow => "Arrow",
+            Item::Block => "Block",
+            Item::GoldenApple => "GoldenApple",
+        }
+    }
+}
+
 /// Bitflags representing player actions (Is reset every tick)
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
 pub struct PlayerActions {

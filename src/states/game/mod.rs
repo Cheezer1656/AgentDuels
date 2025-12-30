@@ -1,6 +1,6 @@
 use crate::states::game::gameloop::GOAL_BOUNDS;
 use crate::states::game::player::{
-    PLAYER_ANIMATION_INDICES, PLAYER_HEIGHT, PLAYER_WIDTH, PlayerBody, PlayerBundle,
+    PLAYER_ANIMATION_INDICES, PLAYER_HEIGHT, PLAYER_WIDTH, PlayerBody, PlayerBundle, PlayerHand,
     SPAWN_POSITIONS, SPAWN_ROTATIONS,
 };
 use crate::{
@@ -242,7 +242,7 @@ fn setup(
                         body_transform,
                     ))
                     .observe(play_animation_on_ready)
-                    .observe(mark_head_on_ready);
+                    .observe(mark_entities_on_ready);
             });
     }
 }
@@ -273,7 +273,7 @@ fn play_animation_on_ready(
     }
 }
 
-fn mark_head_on_ready(
+fn mark_entities_on_ready(
     scene_ready: On<SceneInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
@@ -283,10 +283,15 @@ fn mark_head_on_ready(
         let Ok((entity, name)) = names.get_mut(child) else {
             continue;
         };
-        if name.as_str() != "head" {
-            continue;
+        match name.as_str() {
+            "head" => {
+                commands.entity(entity).insert(PlayerHead);
+            }
+            "hand" => {
+                commands.entity(entity).insert(PlayerHand);
+            }
+            _ => {}
         }
-        commands.entity(entity).insert(PlayerHead);
     }
 }
 

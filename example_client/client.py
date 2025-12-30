@@ -32,6 +32,8 @@ while True:
                     s.send(b'{"Attack": null}')
                     if 30 < ticks < 154:
                         s.send(b'{"MoveForward": null}')
+                    if ticks == 80:
+                        s.send(b'{"SelectItem": "Bow"}')
                     s.send(b'{"EndTick": null}')
                     print("Sent actions")
     except ConnectionRefusedError:
