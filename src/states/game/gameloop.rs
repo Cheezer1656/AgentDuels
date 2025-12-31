@@ -53,6 +53,7 @@ impl Plugin for GameLoopPlugin {
                         .after(move_player)
                         .after(tick_hurt_cooldown),
                     tick_hurt_cooldown,
+                    apply_damage_tint.after(tick_hurt_cooldown),
                     check_goal.after(move_player),
                     check_for_win.after(check_goal),
                     check_for_deaths,
@@ -359,6 +360,28 @@ fn attack(
 fn tick_hurt_cooldown(mut player_query: Query<&mut HurtCooldown>) {
     for mut hurt_cooldown in player_query.iter_mut() {
         hurt_cooldown.0 = hurt_cooldown.0.saturating_sub(1);
+    }
+}
+
+fn apply_damage_tint(
+    player_query: Query<(Entity, &HurtCooldown), Changed<HurtCooldown>>,
+    children_query: Query<&Children>,
+    material_query: Query<&MeshMaterial3d<StandardMaterial>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for (entity, hurt_cooldown) in player_query.iter() {
+        for child in children_query.iter_descendants(entity) {
+            let Ok(mesh_material) = material_query.get(child) else {
+                continue;
+            };
+
+            let material = materials.get_mut(&mesh_material.0).unwrap();
+            material.base_color = if hurt_cooldown.0 != 0 {
+                Color::srgb_u8(255, 0, 0)
+            } else {
+                Color::WHITE
+            };
+        }
     }
 }
 
