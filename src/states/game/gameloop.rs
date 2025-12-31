@@ -292,7 +292,10 @@ fn attack(
         (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
     >,
     children_query: Query<&Children>,
-    mut player_query_2: Query<(&mut Health, &mut HurtCooldown), With<PlayerID>>,
+    mut player_query_2: Query<
+        (&mut Health, &mut HurtCooldown, &mut LinearVelocity),
+        With<PlayerID>,
+    >,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
     spatial_query: SpatialQuery,
@@ -331,7 +334,7 @@ fn attack(
                         if hit.entity == entity {
                             continue;
                         }
-                        if let Ok((mut health, mut hurt_cooldown)) =
+                        if let Ok((mut health, mut hurt_cooldown, mut vel)) =
                             player_query_2.get_mut(hit.entity)
                         {
                             if hurt_cooldown.0 > 0 {
@@ -339,6 +342,7 @@ fn attack(
                             }
                             health.0 -= 5.0;
                             hurt_cooldown.0 = 10;
+                            vel.0 += Vec3::new(dir.x, 0.5, dir.z).normalize() * 20.0;
                             println!(
                                 "Player {:?} attacked entity {:?}, new health: {}",
                                 entity, hit.entity, health.0
@@ -424,7 +428,7 @@ fn reset_health_after_death(event: On<DeathEvent>, mut player_query: Query<&mut 
 
 fn reset_player_position_on_death(
     event: On<DeathEvent>,
-    mut player_query: Query<(&PlayerID, &mut Transform, &Children)>,
+    mut player_query: Query<(&PlayerID, &mut Transform, &mut LinearVelocity, &Children)>,
     mut player_body_query: Query<
         (&mut Transform, &Children),
         (With<PlayerBody>, Without<PlayerID>),
@@ -434,8 +438,9 @@ fn reset_player_position_on_death(
         (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
     >,
 ) {
-    let (player_id, mut transform, children) = player_query.get_mut(event.0).unwrap();
+    let (player_id, mut transform, mut vel, children) = player_query.get_mut(event.0).unwrap();
     transform.translation = SPAWN_POSITIONS[player_id.0 as usize];
+    vel.0 = Vec3::ZERO;
 
     for child in children.iter() {
         let Ok((mut body_transform, body_children)) = player_body_query.get_mut(child) else {

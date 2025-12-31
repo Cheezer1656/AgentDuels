@@ -30,10 +30,10 @@ while True:
                         s.send(b'{"PlaceBlock": null}')
                     # else:
                     # s.send(b'{"Jump": null}')
-                    if ticks % 80 == 0:
-                        s.send(b'{"Attack": null}')
+                    s.send(b'{"Attack": null}')
                     # if 30 < ticks < 154:
-                    s.send(b'{"MoveForward": null}')
+                    if ticks > 1:
+                        s.send(b'{"MoveForward": null}')
                     if ticks == 20:
                         s.send(b'{"SelectItem": "Sword"}')
                     s.send(b'{"EndTick": null}')
