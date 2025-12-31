@@ -57,7 +57,7 @@ impl Plugin for GameLoopPlugin {
                     check_for_win.after(check_goal),
                     check_for_deaths,
                     kill_oob_players.after(move_player),
-                    update_animation.after(move_player),
+                    update_animations.after(move_player),
                     update_item_model.after(change_item_in_inv),
                 ),
             )
@@ -467,12 +467,14 @@ fn kill_oob_players(mut player_query: Query<(&mut Health, &Transform)>) {
     }
 }
 
-fn update_animation(
-    player_query: Query<(Entity, &LinearVelocity), With<PlayerID>>,
+fn update_animations(
+    player_query: Query<(Entity, &PlayerID, &LinearVelocity), With<PlayerID>>,
     children: Query<&Children>,
     mut anim_player_query: Query<&mut AnimationPlayer>,
+    actions: Res<PlayerActionsTracker>,
+    opp_actions: Res<OpponentActionsTracker>,
 ) {
-    for (entity, vel) in player_query.iter() {
+    for (entity, player_id, vel) in player_query.iter() {
         for child in children.iter_descendants(entity) {
             let Ok(mut anim_player) = anim_player_query.get_mut(child) else {
                 continue;
@@ -484,8 +486,29 @@ fn update_animation(
                 if !animation.is_paused() {
                     animation.rewind().pause();
                 }
-            } else if animation.is_paused() {
-                animation.resume();
+            } else {
+                if animation.is_paused() {
+                    animation.resume();
+                }
+                animation.set_speed((vel.x.abs() + vel.z.abs()) * 0.25);
+            }
+
+            let actions = if player_id.0 == 0 {
+                actions.0
+            } else {
+                opp_actions.0
+            };
+
+            if actions.is_set(PlayerActions::ATTACK)
+                && (!anim_player.is_playing_animation(PLAYER_ANIMATION_INDICES.swing.into())
+                    || anim_player
+                        .animation(PLAYER_ANIMATION_INDICES.swing.into())
+                        .and_then(|anim| Some(anim.is_finished()))
+                        .unwrap_or(false))
+            {
+                anim_player
+                    .start(PLAYER_ANIMATION_INDICES.swing.into())
+                    .set_speed(2.0);
             }
         }
     }

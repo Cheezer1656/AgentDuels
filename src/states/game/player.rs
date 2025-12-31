@@ -12,11 +12,13 @@ pub struct PlayerAnimationIndices {
     pub root: u32,
     pub idle: u32,
     pub walk: u32,
+    pub swing: u32,
 }
 pub const PLAYER_ANIMATION_INDICES: PlayerAnimationIndices = PlayerAnimationIndices {
     root: 0,
     idle: 1,
     walk: 2,
+    swing: 3,
 };
 pub const SPAWN_POSITIONS: [Vec3; 2] = [
     Vec3::new(21.5, 1.0 + PLAYER_HEIGHT / 2.0, 0.5),

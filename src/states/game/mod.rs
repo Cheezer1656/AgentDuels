@@ -201,11 +201,19 @@ fn setup(
         body_transform.rotation = Quat::from_rotation_y(SPAWN_ROTATIONS[i as usize]);
 
         let gltf_path = format!("models/player{}.gltf#Scene0", i);
-        let (mut graph, _) = AnimationGraph::from_clip(
+        let mut graph = AnimationGraph::new();
+        graph.add_clip(
             assets.load(GltfAssetLabel::Animation(0).from_asset(gltf_path.clone())),
+            0.1,
+            PLAYER_ANIMATION_INDICES.root.into(),
         );
-        let _ = graph.add_clip(
+        graph.add_clip(
             assets.load(GltfAssetLabel::Animation(1).from_asset(gltf_path.clone())),
+            0.1,
+            PLAYER_ANIMATION_INDICES.root.into(),
+        );
+        graph.add_clip(
+            assets.load(GltfAssetLabel::Animation(2).from_asset(gltf_path.clone())),
             1.0,
             PLAYER_ANIMATION_INDICES.root.into(),
         );

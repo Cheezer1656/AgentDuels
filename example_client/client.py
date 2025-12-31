@@ -30,11 +30,12 @@ while True:
                         s.send(b'{"PlaceBlock": null}')
                     # else:
                     # s.send(b'{"Jump": null}')
-                    s.send(b'{"Attack": null}')
+                    if ticks % 80 == 0:
+                        s.send(b'{"Attack": null}')
                     # if 30 < ticks < 154:
                     s.send(b'{"MoveForward": null}')
-                    if ticks == 80:
-                        s.send(b'{"SelectItem": "Bow"}')
+                    if ticks == 20:
+                        s.send(b'{"SelectItem": "Sword"}')
                     s.send(b'{"EndTick": null}')
                     print(f"Sent actions | TPS: {1.0 / (time()-last_tick)} | Old TPS: {ticks/(time()-start)}")
                     last_tick = time()
