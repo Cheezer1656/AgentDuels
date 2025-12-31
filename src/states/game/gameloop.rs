@@ -376,6 +376,11 @@ fn check_goal(
         if x_range.contains(&pos.x) && y_range.contains(&pos.y) && z_range.contains(&pos.z) {
             entities.push(entity);
         }
+        // Kill the player if they are in their own goal, without scoring
+        let (x_range, y_range, z_range) = &GOAL_BOUNDS[player_id.0 as usize ^ 1];
+        if x_range.contains(&pos.x) && y_range.contains(&pos.y) && z_range.contains(&pos.z) {
+            commands.trigger(DeathEvent(entity));
+        }
     }
     if let Some(chosen_entity) = rng.clone_rng().choice(entities.iter()) {
         commands.trigger(GoalEvent(*chosen_entity));
