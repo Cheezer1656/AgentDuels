@@ -544,7 +544,11 @@ fn update_scoreboard(
 #[derive(Resource, Default)]
 struct LastTick(f32);
 
-fn update_tps(mut tps_text: Single<&mut TextSpan, With<TPSMarker>>, mut last_tick: ResMut<LastTick>, time: Res<Time>) {
+fn update_tps(
+    mut tps_text: Single<&mut TextSpan, With<TPSMarker>>,
+    mut last_tick: ResMut<LastTick>,
+    time: Res<Time>,
+) {
     let tps = 1.0 / (time.elapsed_secs() - last_tick.0);
     last_tick.0 = time.elapsed_secs();
 
