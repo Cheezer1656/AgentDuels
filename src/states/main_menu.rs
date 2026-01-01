@@ -2,8 +2,10 @@ use bevy::prelude::*;
 
 use crate::{AppState, AutoDespawn, ControlServer};
 
-#[derive(Component)]
-struct PlayButton;
+#[derive(Component, Default)]
+struct PlayButton {
+    enabled: bool,
+}
 
 #[derive(Component)]
 pub struct ConnectionText;
@@ -17,7 +19,8 @@ impl Plugin for MainMenuPlugin {
                 Update,
                 (
                     button_press,
-                    update_connection_text.run_if(resource_changed::<ControlServer>),
+                    (update_button, update_connection_text)
+                        .run_if(resource_changed::<ControlServer>),
                 )
                     .run_if(in_state(AppState::MainMenu)),
             );
@@ -53,7 +56,7 @@ fn setup(mut commands: Commands, server: Option<Res<ControlServer>>) {
                 TextFont::default().with_font_size(100.0),
             ),
             (
-                PlayButton,
+                PlayButton::default(),
                 Button::default(),
                 Node {
                     width: Val::Px(150.0),
@@ -82,11 +85,26 @@ fn setup(mut commands: Commands, server: Option<Res<ControlServer>>) {
 
 fn button_press(
     mut next_state: ResMut<NextState<AppState>>,
-    button_query: Query<&Interaction, (With<PlayButton>, Changed<Interaction>)>,
+    button_query: Query<(&PlayButton, &Interaction), Changed<Interaction>>,
 ) {
-    if let Ok(interaction) = button_query.single() {
-        if *interaction == Interaction::Pressed {
+    if let Ok((play_button, interaction)) = button_query.single() {
+        if play_button.enabled == true && *interaction == Interaction::Pressed {
             next_state.set(AppState::Joining);
+        }
+    }
+}
+
+fn update_button(
+    mut butten_query: Query<(&mut PlayButton, &mut BackgroundColor)>,
+    server: Res<ControlServer>,
+) {
+    if let Ok((mut play_button, mut bg_color)) = butten_query.single_mut() {
+        if server.client.is_some() {
+            play_button.enabled = true;
+            bg_color.0 = Color::Srgba(Srgba::GREEN);
+        } else {
+            play_button.enabled = false;
+            bg_color.0 = Color::srgb_u8(50, 50, 50);
         }
     }
 }

@@ -66,11 +66,8 @@ fn run_game_update(world: &mut World) {
     let prev_actions = net_state.prev_actions;
     let prev_nonce = net_state.nonce;
 
-    let mut message_buffer = world
-        .resource::<ControlServer>()
-        .message_buffer
-        .lock()
-        .unwrap();
+    let mut control_server = world.resource_mut::<ControlServer>();
+    let mut message_buffer = control_server.message_buffer.lock().unwrap();
     let Some(end_idx) = message_buffer
         .iter()
         .position(|m| *m == ControlMsgC2S::EndTick)
@@ -81,6 +78,7 @@ fn run_game_update(world: &mut World) {
     let messages = message_buffer[..=end_idx].to_vec();
     message_buffer.drain(..=end_idx);
     drop(message_buffer);
+    control_server.tick_start_message = None;
 
     let mut new_actions = PlayerActions::default();
     for msg in messages {
@@ -186,23 +184,23 @@ fn send_control_start(
     mut net_state: ResMut<NetworkState>,
     opponent_actions: Res<OpponentActionsTracker>,
 ) {
-    if net_state.phase != NetworkPhase::StartingTick {
+    if net_state.phase != NetworkPhase::StartingTick || control_server.client.is_none() {
         return;
     }
     net_state.phase = NetworkPhase::AwaitingAction;
 
-    let stream = control_server.client.as_mut().unwrap();
+    let message = serde_json::to_string(&ControlMsgS2C::TickStart {
+        tick: net_state.tick,
+        opponent_prev_actions: opponent_actions.0,
+    })
+    .unwrap();
+    control_server.tick_start_message = Some(message.clone());
 
-    stream
-        .write(
-            serde_json::to_string(&ControlMsgS2C::TickStart {
-                tick: net_state.tick,
-                opponent_prev_actions: opponent_actions.0,
-            })
-            .unwrap()
-            .as_bytes(),
-        )
-        .unwrap();
+    let Some(stream) = control_server.client.as_mut() else {
+        return;
+    };
+
+    stream.write(message.as_bytes()).unwrap();
 }
 
 /// Random number generator for the game.

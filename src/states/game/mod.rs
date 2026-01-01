@@ -4,7 +4,7 @@ use crate::states::game::player::{
     SPAWN_POSITIONS, SPAWN_ROTATIONS,
 };
 use crate::{
-    AppState, AutoDespawn,
+    AppState, AutoDespawn, ControlServer,
     states::game::{
         gameloop::GameLoopPlugin,
         network::NetworkPlugin,
@@ -56,6 +56,9 @@ struct BlueScoreMarker;
 #[derive(Component)]
 struct TPSMarker;
 
+#[derive(Component)]
+struct ClientStatusMarker;
+
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
@@ -74,6 +77,10 @@ impl Plugin for GamePlugin {
             .add_systems(
                 Update,
                 (toggle_cursor_grab, move_cam).run_if(in_state(AppState::Game)),
+            )
+            .add_systems(
+                FixedUpdate,
+                update_client_status.run_if(resource_changed::<ControlServer>),
             );
     }
 }
@@ -82,6 +89,7 @@ fn setup(
     mut commands: Commands,
     mut graphs: ResMut<Assets<AnimationGraph>>,
     assets: Res<AssetServer>,
+    control_server: Res<ControlServer>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -134,8 +142,31 @@ fn setup(
         TextFont::default(),
         children![(TPSMarker, TextSpan("0".to_string()))],
         Node {
+            height: Val::Px(20.0),
+            width: Val::Percent(100.0),
+            ..default()
+        },
+    ));
+
+    commands.spawn((
+        AutoDespawn(AppState::Game),
+        Text2d::new("Client status: "),
+        TextFont::default(),
+        children![(
+            ClientStatusMarker,
+            TextSpan(
+                (if control_server.client.is_some() {
+                    "Connected"
+                } else {
+                    "Disconnected"
+                })
+                .to_string()
+            ),
+        ),],
+        Node {
+            margin: UiRect::default().with_top(Val::Px(20.0)),
             height: Val::Px(90.0),
-            width: Val::Px(90.0),
+            width: Val::Percent(100.0),
             ..default()
         },
     ));
@@ -367,4 +398,19 @@ fn move_cam(
     delta.y = 0.0;
 
     transform.translation += delta;
+}
+
+fn update_client_status(
+    mut text_query: Query<&mut TextSpan, With<ClientStatusMarker>>,
+    control_server: Res<ControlServer>,
+) {
+    let Ok(mut text_span) = text_query.single_mut() else {
+        return;
+    };
+    text_span.0 = (if control_server.client.is_some() {
+        "Connected"
+    } else {
+        "Disconnected"
+    })
+    .to_string();
 }

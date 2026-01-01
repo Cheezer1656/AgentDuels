@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::{
     io::Read,
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream},
@@ -51,11 +52,16 @@ pub enum ControlMsgC2S {
     EndTick,
 }
 
+type ClientID = usize;
+
 #[derive(Resource)]
 struct ControlServer {
     listener: TcpListener,
     client: Option<TcpStream>,
+    client_id: ClientID,
+    disconnect_queue: Arc<Mutex<Vec<ClientID>>>,
     message_buffer: Arc<Mutex<Vec<ControlMsgC2S>>>,
+    tick_start_message: Option<String>,
 }
 
 #[tokio::main]
@@ -78,9 +84,12 @@ async fn main() {
         .insert_resource(ControlServer {
             listener,
             client: None,
+            client_id: 0,
+            disconnect_queue: Arc::new(Mutex::new(Vec::new())),
             message_buffer: Arc::new(Mutex::new(Vec::new())),
+            tick_start_message: None,
         })
-        .add_systems(Update, handle_connection)
+        .add_systems(FixedUpdate, (handle_connection, handle_disconnects))
         .add_systems(OnExit(AppState::Joining), cleanup_state)
         .add_systems(OnExit(AppState::MainMenu), cleanup_state)
         .add_systems(OnExit(AppState::Game), cleanup_state)
@@ -105,16 +114,23 @@ fn handle_connection(mut server: ResMut<ControlServer>) {
         return;
     };
     if let Some(client) = &server.client {
-        client.shutdown(std::net::Shutdown::Both).unwrap();
+        let _ = client.shutdown(std::net::Shutdown::Both);
     }
     server.client = Some(stream.try_clone().unwrap());
+    server.client_id += 1;
+    let client_id = server.client_id;
+    let disconnect_queue = server.disconnect_queue.clone();
     let message_buffer = server.message_buffer.clone();
+    let tick_start_message = server.tick_start_message.clone();
     thread::spawn(move || {
+        if let Some(message) = tick_start_message {
+            stream.write(message.as_bytes()).unwrap();
+        }
         let mut buf = [0; 128];
         loop {
             let n = stream.read(&mut buf).unwrap();
             if n == 0 {
-                println!("Control connection closed");
+                disconnect_queue.lock().unwrap().push(client_id);
                 break;
             }
             for msg in serde_json::Deserializer::from_slice(&buf[..n])
@@ -126,4 +142,18 @@ fn handle_connection(mut server: ResMut<ControlServer>) {
             buf.fill(0);
         }
     });
+}
+
+fn handle_disconnects(mut server: ResMut<ControlServer>) {
+    let disconnects = server
+        .disconnect_queue
+        .lock()
+        .unwrap()
+        .drain(..)
+        .collect::<Vec<_>>();
+    for client_id in disconnects {
+        if server.client_id == client_id {
+            server.client = None;
+        }
+    }
 }
