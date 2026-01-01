@@ -1,6 +1,5 @@
 use crate::{AppState, AutoDespawn};
 use bevy::prelude::*;
-use bevy_inspector_egui::bevy_egui;
 
 #[derive(Resource)]
 pub struct GameResults {

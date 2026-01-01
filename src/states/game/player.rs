@@ -63,10 +63,6 @@ impl Inventory {
         *self.contents.get(&item).unwrap_or(&0)
     }
 
-    pub fn add_item(&mut self, item: Item, amount: u16) {
-        *self.contents.entry(item).or_insert(0) += amount;
-    }
-
     pub fn remove_item(&mut self, item: Item, amount: u16) {
         *self.contents.entry(item).or_insert(0) =
             (self.contents.get(&item).unwrap_or(&0) - amount).max(0);

@@ -323,7 +323,7 @@ fn update_breaking_status(
                     let Ok(head_transform) = player_head_query.get(child) else {
                         continue;
                     };
-                    if let Some((block_pos, face)) = raycast_for_block(
+                    if let Some((block_pos, _)) = raycast_for_block(
                         transform.translation,
                         body_transform.rotation,
                         head_transform.rotation,
