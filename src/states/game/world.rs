@@ -343,6 +343,10 @@ fn regen_dirty_chunks(
     }
 
     if dirty {
+        if let Some(collider_entity) = chunk_map.collider {
+            commands.entity(collider_entity).despawn();
+        }
+
         let mut points: Vec<Point<i32>> = Vec::new();
         for (pos, chunk) in chunk_map.chunks.iter() {
             for i in 0..CHUNK_WIDTH {
