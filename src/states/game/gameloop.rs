@@ -1,9 +1,10 @@
 use crate::AppState;
 use crate::states::game::network::GameRng;
 use crate::states::game::player::{
-    Health, HurtCooldown, Inventory, PLAYER_ANIMATION_INDICES, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT,
-    PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerBody, PlayerHand,
-    SPAWN_POSITIONS, SPAWN_ROTATIONS, Score,
+    BreakingStatus, BreakingStatusTracker, Health, HurtCooldown, Inventory,
+    PLAYER_ANIMATION_INDICES, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_INTERACT_RANGE,
+    PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerBody, PlayerHand, SPAWN_POSITIONS,
+    SPAWN_ROTATIONS, Score,
 };
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::game::{BlueScoreMarker, RedScoreMarker, TPSMarker};
@@ -48,6 +49,10 @@ impl Plugin for GameLoopPlugin {
                     change_item_in_inv,
                     move_player,
                     place_block.after(change_item_in_inv).after(move_player),
+                    update_breaking_status
+                        .after(change_item_in_inv)
+                        .after(move_player),
+                    break_block.after(update_breaking_status),
                     attack
                         .after(change_item_in_inv)
                         .after(move_player)
@@ -168,6 +173,65 @@ fn move_player(
     }
 }
 
+fn raycast_for_block(
+    player_pos: Vec3,
+    player_yaw: Quat,
+    player_pitch: Quat,
+    chunk_map: &ChunkMap,
+) -> Option<(IVec3, IVec3)> {
+    let origin = player_pos + Vec3::new(0.0, -PLAYER_HEIGHT / 2.0 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
+    let mut pos = origin;
+    let dir_inv = 1.0
+        / (player_yaw * Quat::from_rotation_y(std::f32::consts::FRAC_PI_2) * player_pitch)
+            .mul_vec3(Vec3::Z);
+
+    let step = dir_inv.map(|a| a.signum());
+    let select = dir_inv.map(|a| 0.5 + 0.5 * a.signum());
+
+    loop {
+        let floored_pos = pos.floor();
+        let floored_pos_ivec3 = pos.floor().as_ivec3();
+        if chunk_map.get_block(floored_pos_ivec3) != BlockType::Air {
+            let t1 = (floored_pos - origin) * dir_inv;
+            let t2 = (floored_pos + Vec3::splat(1.0) - origin) * dir_inv;
+            let t_min = t1.min(t2);
+            let t_hit = t_min.x.max(t_min.y).max(t_min.z);
+
+            let face = (if t_hit == t_min.x {
+                Vec3::new(-step.x, 0.0, 0.0)
+            } else if t_hit == t_min.y {
+                Vec3::new(0.0, -step.y, 0.0)
+            } else {
+                Vec3::new(0.0, 0.0, -step.z)
+            })
+            .normalize()
+            .ceil()
+            .as_ivec3();
+
+            return Some((floored_pos_ivec3, face));
+        } else if (pos - origin).length_squared() > 5.0 * 5.0 {
+            return None;
+        }
+
+        let planes = pos.floor() + select;
+        let t = (planes - origin) * dir_inv;
+
+        if t.x < t.y {
+            if t.x < t.z {
+                pos.x += step.x;
+            } else {
+                pos.z += step.z;
+            }
+        } else {
+            if t.y < t.z {
+                pos.y += step.y;
+            } else {
+                pos.z += step.z;
+            }
+        }
+    }
+}
+
 fn place_block(
     mut player_query: Query<(&PlayerID, &mut Inventory, &Transform, &Children)>,
     player_body_query: Query<&Transform, (With<PlayerBody>, Without<PlayerID>)>,
@@ -179,9 +243,6 @@ fn place_block(
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
     mut chunk_map: Single<&mut ChunkMap>,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (player_id, mut inv, transform, children) in player_query.iter_mut() {
         let actions = if player_id.0 == 0 {
@@ -199,89 +260,118 @@ fn place_block(
                         let Ok(head_transform) = player_head_query.get(child) else {
                             continue;
                         };
-                        let origin = transform.translation
-                            + Vec3::new(0.0, -PLAYER_HEIGHT / 2.0 + PLAYER_EYE_HEIGHT, 0.0); // -half player height + eye height
-                        let mut pos = origin;
-                        let dir_inv = 1.0
-                            / (body_transform.rotation
-                                * Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)
-                                * head_transform.rotation)
-                                .mul_vec3(Vec3::Z);
+                        let Some((block_pos, face)) = raycast_for_block(
+                            transform.translation,
+                            body_transform.rotation,
+                            head_transform.rotation,
+                            &chunk_map,
+                        ) else {
+                            continue;
+                        };
 
-                        // for i in 0..50 {
-                        //     commands.spawn((
-                        //         Mesh3d(meshes.add(Cuboid::new(0.05, 0.05, 0.05))),
-                        //         MeshMaterial3d(materials.add(Color::srgb_u8(243, 255, 255))),
-                        //         Transform::from_translation(
-                        //             origin + 1.0 / dir_inv * (i as f32 * 0.1),
-                        //         ),
-                        //     ));
-                        // }
-
-                        let step = dir_inv.map(|a| a.signum());
-                        let select = dir_inv.map(|a| 0.5 + 0.5 * a.signum());
-                        let mut found = false;
-                        loop {
-                            if chunk_map.get_block(pos.floor().as_ivec3()) != BlockType::Air {
-                                found = true;
-                                break;
-                            } else if (pos - origin).length_squared() > 5.0 * 5.0 {
-                                break;
-                            }
-
-                            let planes = pos.floor() + select;
-                            let t = (planes - origin) * dir_inv;
-
-                            if t.x < t.y {
-                                if t.x < t.z {
-                                    pos.x += step.x;
+                        chunk_map
+                            .set_block(
+                                block_pos + face,
+                                if player_id.0 == 0 {
+                                    BlockType::RedBlock
                                 } else {
-                                    pos.z += step.z;
+                                    BlockType::BlueBlock
+                                },
+                            )
+                            .unwrap();
+
+                        inv.remove_item(Item::Block, 1);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn update_breaking_status(
+    mut player_query: Query<(
+        &PlayerID,
+        &Inventory,
+        &mut BreakingStatusTracker,
+        &Transform,
+        &Children,
+    )>,
+    player_body_query: Query<&Transform, (With<PlayerBody>, Without<PlayerID>)>,
+    player_head_query: Query<
+        &Transform,
+        (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
+    >,
+    children_query: Query<&Children>,
+    actions: Res<PlayerActionsTracker>,
+    opp_actions: Res<OpponentActionsTracker>,
+    chunk_map: Single<&ChunkMap>,
+) {
+    for (player_id, inv, mut breaking_status_tracker, transform, children) in
+        player_query.iter_mut()
+    {
+        let actions = if player_id.0 == 0 {
+            actions.0
+        } else {
+            opp_actions.0
+        };
+        for child in children.iter() {
+            let Ok(body_transform) = player_body_query.get(child) else {
+                continue;
+            };
+            if actions.is_set(PlayerActions::DIG_BLOCK) {
+                for child in children_query.iter_descendants(child) {
+                    let Ok(head_transform) = player_head_query.get(child) else {
+                        continue;
+                    };
+                    if let Some((block_pos, face)) = raycast_for_block(
+                        transform.translation,
+                        body_transform.rotation,
+                        head_transform.rotation,
+                        &chunk_map,
+                    ) {
+                        if let Some(breaking_status) = breaking_status_tracker.0.as_mut() {
+                            if block_pos == breaking_status.block_pos {
+                                let ticks_advanced = match inv.get_selected_item() {
+                                    Item::Pickaxe => 3,
+                                    _ => 1,
+                                };
+                                if let Some(ticks_left) =
+                                    breaking_status.ticks_left.checked_sub(ticks_advanced)
+                                {
+                                    breaking_status.ticks_left = ticks_left;
+                                } else {
+                                    breaking_status_tracker.0.take();
                                 }
                             } else {
-                                if t.y < t.z {
-                                    pos.y += step.y;
-                                } else {
-                                    pos.z += step.z;
-                                }
+                                breaking_status_tracker.0.take();
                             }
-                        }
-
-                        if found {
-                            let floored_pos = pos.floor();
-
-                            let t1 = (floored_pos - origin) * dir_inv;
-                            let t2 = (floored_pos + Vec3::splat(1.0) - origin) * dir_inv;
-                            let t_min = t1.min(t2);
-                            let t_hit = t_min.x.max(t_min.y).max(t_min.z);
-
-                            let face = (if t_hit == t_min.x {
-                                Vec3::new(-step.x, 0.0, 0.0)
-                            } else if t_hit == t_min.y {
-                                Vec3::new(0.0, -step.y, 0.0)
-                            } else {
-                                Vec3::new(0.0, 0.0, -step.z)
-                            })
-                            .normalize();
-
-                            let block_pos = (floored_pos + face).as_ivec3();
-                            chunk_map
-                                .set_block(
-                                    block_pos,
-                                    if player_id.0 == 0 {
-                                        BlockType::RedBlock
-                                    } else {
-                                        BlockType::BlueBlock
-                                    },
-                                )
-                                .unwrap();
-
-                            inv.remove_item(Item::Block, 1);
+                        } else {
+                            breaking_status_tracker.0 = Some(BreakingStatus {
+                                block_pos,
+                                ticks_left: 30,
+                            });
                         }
                     }
                 }
             }
         }
+    }
+}
+
+fn break_block(
+    player_query: Query<&BreakingStatusTracker, Changed<BreakingStatusTracker>>,
+    mut chunk_map: Single<&mut ChunkMap>,
+) {
+    for breaking_status_tracker in player_query.iter() {
+        let Some(breaking_status) = breaking_status_tracker.0.as_ref() else {
+            continue;
+        };
+        if breaking_status.ticks_left > 0 {
+            continue;
+        }
+        chunk_map
+            .set_block(breaking_status.block_pos, BlockType::Air)
+            .unwrap();
     }
 }
 
@@ -532,7 +622,9 @@ fn update_animations(
                 opp_actions.0
             };
 
-            if actions.is_set(PlayerActions::ATTACK)
+            if (actions.is_set(PlayerActions::ATTACK)
+                || actions.is_set(PlayerActions::PLACE_BLOCK)
+                || actions.is_set(PlayerActions::DIG_BLOCK))
                 && (!anim_player.is_playing_animation(PLAYER_ANIMATION_INDICES.swing.into())
                     || anim_player
                         .animation(PLAYER_ANIMATION_INDICES.swing.into())
@@ -541,7 +633,7 @@ fn update_animations(
             {
                 anim_player
                     .start(PLAYER_ANIMATION_INDICES.swing.into())
-                    .set_speed(2.0);
+                    .set_speed(3.0);
             }
         }
     }

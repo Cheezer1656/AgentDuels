@@ -22,20 +22,23 @@ while True:
                     msg = msg["TickStart"]
                     if ticks == 1:
                         s.send(b'{"SelectItem": "Block"}')
-                    if ticks == 1:
-                        s.send(f'{{"Rotate": [1.5707963, -0.6]}}'.encode())
-                    else:
-                        s.send(f'{{"Rotate": [0.0, 0.0]}}'.encode())
+                    elif ticks == 2:
+                        s.send(b'{"SelectItem": "Pickaxe"}')
+                    # if ticks == 1:
+                    s.send(f'{{"Rotate": [1.5707963, -0.6]}}'.encode())
+                    # else:
+                    #     s.send(f'{{"Rotate": [0.0, 0.0]}}'.encode())
                     if ticks == 1:
                         s.send(b'{"PlaceBlock": null}')
+                    else:
+                        s.send(b'{"DigBlock": null}')
                     # else:
                     # s.send(b'{"Jump": null}')
-                    s.send(b'{"Attack": null}')
                     # if 30 < ticks < 154:
-                    if ticks > 1:
+                    if ticks > 35:
                         s.send(b'{"MoveForward": null}')
-                    if ticks == 20:
-                        s.send(b'{"SelectItem": "Sword"}')
+                    # if ticks == 20:
+                    #     s.send(b'{"SelectItem": "Sword"}')
                     s.send(b'{"EndTick": null}')
                     print(f"Sent actions | TPS: {1.0 / (time()-last_tick)} | Old TPS: {ticks/(time()-start)}")
                     last_tick = time()

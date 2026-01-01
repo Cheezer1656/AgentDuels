@@ -102,6 +102,16 @@ impl Default for Inventory {
 #[derive(Component, Default)]
 pub struct Score(pub u16);
 
+#[derive(Default)]
+pub struct BreakingStatus {
+    pub block_pos: IVec3,
+    pub ticks_left: usize,
+}
+
+/// Tracker for the player's block breaking status
+#[derive(Component, Default)]
+pub struct BreakingStatusTracker(pub Option<BreakingStatus>);
+
 #[derive(Bundle, Default)]
 pub struct PlayerBundle {
     pub id: PlayerID,
@@ -109,5 +119,6 @@ pub struct PlayerBundle {
     pub hurt_cooldown: HurtCooldown,
     pub inventory: Inventory,
     pub score: Score,
+    pub breaking_status: BreakingStatusTracker,
     pub transform: Transform,
 }
