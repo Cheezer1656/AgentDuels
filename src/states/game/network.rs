@@ -2,6 +2,7 @@ use std::io::{Read, Write};
 
 use crate::states::PostGameUpdate;
 use crate::states::game::GameUpdate;
+use crate::states::game::player::{PlayerActionsTracker, PlayerID};
 use crate::{ControlMsgC2S, ControlMsgS2C, ControlServer, client::GameConnection};
 use agentduels_protocol::{
     Packet,
@@ -27,9 +28,6 @@ enum NetworkPhase {
     AwaitingData,
 }
 
-#[derive(Resource, Default, Clone, Copy)]
-pub struct PlayerActionsTracker(pub PlayerActions);
-
 #[derive(Message)]
 pub struct PacketEvent(Packet);
 
@@ -38,8 +36,6 @@ pub struct NetworkPlugin;
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<NetworkState>()
-            .init_resource::<PlayerActionsTracker>()
-            .init_resource::<OpponentActionsTracker>()
             .add_message::<PacketEvent>()
             .insert_resource(IncomingBuffer(Vec::new()))
             .add_systems(
@@ -99,7 +95,12 @@ fn run_game_update(world: &mut World) {
     }
 
     // Set action tracker to previous actions (so the game update uses them) (we use previous actions for the current tick)
-    let mut actions = world.resource_mut::<PlayerActionsTracker>();
+    let (_, mut actions) = world
+        .query::<(&PlayerID, &mut PlayerActionsTracker)>()
+        .iter_mut(world)
+        .filter(|(player_id, _)| player_id.0 == 0)
+        .next()
+        .unwrap();
     actions.0 = prev_actions;
 
     world.run_schedule(GameUpdate);
@@ -147,13 +148,10 @@ fn receive_packets(
     }
 }
 
-#[derive(Resource, Default, Clone, Copy)]
-pub struct OpponentActionsTracker(pub PlayerActions);
-
 fn process_opponent_actions(
     mut packet_ev: MessageReader<PacketEvent>,
     mut net_state: ResMut<NetworkState>,
-    mut opponent_actions: ResMut<OpponentActionsTracker>,
+    mut player_query: Query<(&PlayerID, &mut PlayerActionsTracker)>,
 ) {
     if net_state.phase != NetworkPhase::AwaitingData {
         return;
@@ -171,6 +169,11 @@ fn process_opponent_actions(
                 }
             }
 
+            let (_, mut opponent_actions) = player_query
+                .iter_mut()
+                .filter(|(player_id, _)| player_id.0 == 1)
+                .next()
+                .unwrap();
             opponent_actions.0 = actions_packet.prev_actions;
 
             net_state.prev_hash = actions_packet.action_hash;
@@ -183,8 +186,13 @@ fn process_opponent_actions(
 fn send_control_start(
     mut control_server: ResMut<ControlServer>,
     mut net_state: ResMut<NetworkState>,
-    opponent_actions: Res<OpponentActionsTracker>,
+    player_query: Query<(&PlayerID, &PlayerActionsTracker)>,
 ) {
+    let (_, opponent_actions) = player_query
+        .iter()
+        .filter(|(player_id, _)| player_id.0 == 1)
+        .next()
+        .unwrap();
     if net_state.phase != NetworkPhase::StartingTick || control_server.client.is_none() {
         return;
     }

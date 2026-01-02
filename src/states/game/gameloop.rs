@@ -3,22 +3,19 @@ use crate::states::game::network::GameRng;
 use crate::states::game::player::{
     BreakingStatus, BreakingStatusTracker, Health, HurtCooldown, Inventory, ItemUsageStatus,
     ItemUsageStatusTracker, PLAYER_ANIMATION_INDICES, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT,
-    PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerBody, PlayerHand,
-    SPAWN_POSITIONS, SPAWN_ROTATIONS, Score,
+    PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerActionsTracker,
+    PlayerBody, PlayerHand, SPAWN_POSITIONS, SPAWN_ROTATIONS, Score,
 };
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::game::{BlueScoreMarker, RedScoreMarker, TPSMarker};
 use crate::states::{
     ARROW_HEIGHT, ARROW_WIDTH, Arrow, CollisionLayer, GameResults, GameUpdate, PostGameUpdate,
-    game::{
-        network::{OpponentActionsTracker, PlayerActionsTracker},
-        player::{PlayerHead, PlayerID},
-    },
+    game::player::{PlayerHead, PlayerID},
 };
 use agentduels_protocol::{Item, PlayerActions};
 use avian3d::prelude::{
-    Collider, ColliderAabb, CollisionEventsEnabled, CollisionLayers, CollisionStart, Friction,
-    LinearVelocity, LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter,
+    Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, Friction, LinearVelocity,
+    LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter,
 };
 use bevy::prelude::*;
 use std::ops::RangeInclusive;
@@ -79,65 +76,54 @@ impl Plugin for GameLoopPlugin {
     }
 }
 
-fn change_item_in_inv(
-    mut player_query: Query<(&PlayerID, &mut Inventory)>,
-    actions: Res<PlayerActionsTracker>,
-    opp_actions: Res<OpponentActionsTracker>,
-) {
-    for (player_id, mut inventory) in player_query.iter_mut() {
-        let actions = if player_id.0 == 0 {
-            actions.0
-        } else {
-            opp_actions.0
-        };
-        if let Some(item) = actions.item_change {
+fn change_item_in_inv(mut player_query: Query<(&PlayerActionsTracker, &mut Inventory)>) {
+    for (actions, mut inventory) in player_query.iter_mut() {
+        if let Some(item) = actions.0.item_change {
             inventory.select_item(item);
         }
     }
 }
 
 fn move_player(
-    mut player_query: Query<(&PlayerID, &Transform, &mut LinearVelocity, &Children)>,
+    mut player_query: Query<(
+        &PlayerID,
+        &PlayerActionsTracker,
+        &Transform,
+        &mut LinearVelocity,
+        &Children,
+    )>,
     mut player_body_query: Query<&mut Transform, (With<PlayerBody>, Without<PlayerID>)>,
     mut player_head_query: Query<
         &mut Transform,
         (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
     >,
     children_query: Query<&Children>,
-    actions: Res<PlayerActionsTracker>,
-    opp_actions: Res<OpponentActionsTracker>,
     chunk_map: Single<&ChunkMap>,
 ) {
-    for (player_id, transform, mut vel, children) in player_query.iter_mut() {
+    for (player_id, mut actions, transform, mut vel, children) in player_query.iter_mut() {
         for child in children.iter() {
             let Ok(mut body_transform) = player_body_query.get_mut(child) else {
                 continue;
             };
 
-            let actions = if player_id.0 == 0 {
-                actions.0
-            } else {
-                opp_actions.0
-            };
-
             let mut dir = Vec3::ZERO;
-            if actions.is_set(PlayerActions::MOVE_FORWARD) {
+            if actions.0.is_set(PlayerActions::MOVE_FORWARD) {
                 dir.x += 1.0;
             }
-            if actions.is_set(PlayerActions::MOVE_BACKWARD) {
+            if actions.0.is_set(PlayerActions::MOVE_BACKWARD) {
                 dir.x -= 1.0;
             }
-            if actions.is_set(PlayerActions::MOVE_LEFT) {
+            if actions.0.is_set(PlayerActions::MOVE_LEFT) {
                 dir.z += 1.0;
             }
-            if actions.is_set(PlayerActions::MOVE_RIGHT) {
+            if actions.0.is_set(PlayerActions::MOVE_RIGHT) {
                 dir.z -= 1.0;
             }
 
-            let yaw = Quat::from_axis_angle(Vec3::Y, actions.rotation[0]);
+            let yaw = Quat::from_axis_angle(Vec3::Y, actions.0.rotation[0]);
             let pitch = Quat::from_axis_angle(
                 -Vec3::X,
-                actions.rotation[1]
+                actions.0.rotation[1]
                     .clamp(-std::f32::consts::FRAC_PI_2, std::f32::consts::FRAC_PI_2),
             );
             for child in children_query.iter_descendants(child) {
@@ -170,7 +156,7 @@ fn move_player(
                 delta *= 0.01;
             }
 
-            delta.y = if actions.is_set(PlayerActions::JUMP) && on_ground {
+            delta.y = if actions.0.is_set(PlayerActions::JUMP) && on_ground {
                 PLAYER_JUMP_SPEED - vel.0.y
             } else {
                 0.0
@@ -241,28 +227,27 @@ fn raycast_for_block(
 }
 
 fn place_block(
-    mut player_query: Query<(&PlayerID, &mut Inventory, &Transform, &Children)>,
+    mut player_query: Query<(
+        &PlayerID,
+        &PlayerActionsTracker,
+        &mut Inventory,
+        &Transform,
+        &Children,
+    )>,
     player_body_query: Query<&Transform, (With<PlayerBody>, Without<PlayerID>)>,
     player_head_query: Query<
         &Transform,
         (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
     >,
     children_query: Query<&Children>,
-    actions: Res<PlayerActionsTracker>,
-    opp_actions: Res<OpponentActionsTracker>,
     mut chunk_map: Single<&mut ChunkMap>,
 ) {
-    for (player_id, mut inv, transform, children) in player_query.iter_mut() {
-        let actions = if player_id.0 == 0 {
-            actions.0
-        } else {
-            opp_actions.0
-        };
+    for (player_id, mut actions, mut inv, transform, children) in player_query.iter_mut() {
         for child in children.iter() {
             let Ok(body_transform) = player_body_query.get(child) else {
                 continue;
             };
-            if actions.is_set(PlayerActions::PLACE_BLOCK) {
+            if actions.0.is_set(PlayerActions::PLACE_BLOCK) {
                 if inv.get_selected_item() == Item::Block && inv.get_count(Item::Block) > 0 {
                     for child in children_query.iter_descendants(child) {
                         let Ok(head_transform) = player_head_query.get(child) else {
@@ -298,7 +283,7 @@ fn place_block(
 
 fn update_breaking_status(
     mut player_query: Query<(
-        &PlayerID,
+        &PlayerActionsTracker,
         &Inventory,
         &mut BreakingStatusTracker,
         &Transform,
@@ -310,23 +295,16 @@ fn update_breaking_status(
         (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
     >,
     children_query: Query<&Children>,
-    actions: Res<PlayerActionsTracker>,
-    opp_actions: Res<OpponentActionsTracker>,
     chunk_map: Single<&ChunkMap>,
 ) {
-    for (player_id, inv, mut breaking_status_tracker, transform, children) in
+    for (mut actions, inv, mut breaking_status_tracker, transform, children) in
         player_query.iter_mut()
     {
-        let actions = if player_id.0 == 0 {
-            actions.0
-        } else {
-            opp_actions.0
-        };
         for child in children.iter() {
             let Ok(body_transform) = player_body_query.get(child) else {
                 continue;
             };
-            if actions.is_set(PlayerActions::DIG_BLOCK) {
+            if actions.0.is_set(PlayerActions::DIG_BLOCK) {
                 for child in children_query.iter_descendants(child) {
                     let Ok(head_transform) = player_head_query.get(child) else {
                         continue;
@@ -386,7 +364,7 @@ fn break_block(
 }
 
 fn attack(
-    player_query: Query<(Entity, &PlayerID, &Transform, &Children)>,
+    player_query: Query<(Entity, &PlayerActionsTracker, &Transform, &Children)>,
     player_body_query: Query<&Transform, (With<PlayerBody>, Without<PlayerID>)>,
     player_head_query: Query<
         &Transform,
@@ -397,17 +375,10 @@ fn attack(
         (&mut Health, &mut HurtCooldown, &mut LinearVelocity),
         With<PlayerID>,
     >,
-    actions: Res<PlayerActionsTracker>,
-    opp_actions: Res<OpponentActionsTracker>,
     spatial_query: SpatialQuery,
 ) {
-    for (entity, player_id, transform, children) in player_query.iter() {
-        let actions = if player_id.0 == 0 {
-            actions.0
-        } else {
-            opp_actions.0
-        };
-        if actions.is_set(PlayerActions::ATTACK) {
+    for (entity, actions, transform, children) in player_query.iter() {
+        if actions.0.is_set(PlayerActions::ATTACK) {
             for child in children.iter() {
                 let Ok(body_transform) = player_body_query.get(child) else {
                     continue;
@@ -458,19 +429,16 @@ fn attack(
 }
 
 fn update_item_usage_status(
-    mut player_query: Query<(&PlayerID, &mut ItemUsageStatusTracker, &Inventory)>,
-    actions: Res<PlayerActionsTracker>,
-    opp_actions: Res<OpponentActionsTracker>,
+    mut player_query: Query<(
+        &PlayerActionsTracker,
+        &mut ItemUsageStatusTracker,
+        &Inventory,
+    )>,
 ) {
-    for (player_id, mut item_usage_tracker, inv) in player_query.iter_mut() {
-        let actions = if player_id.0 == 0 {
-            actions.0
-        } else {
-            opp_actions.0
-        };
-
+    for (actions, mut item_usage_tracker, inv) in player_query.iter_mut() {
         if let Some(item_usage) = item_usage_tracker.0.as_mut() {
-            if actions.is_set(PlayerActions::USE_ITEM) && inv.get_count(inv.get_selected_item()) > 0
+            if actions.0.is_set(PlayerActions::USE_ITEM)
+                && inv.get_count(inv.get_selected_item()) > 0
             {
                 if inv.get_selected_item() == item_usage.item {
                     if let Some(ticks_left) = item_usage.ticks_left.checked_sub(1) {
@@ -485,7 +453,8 @@ fn update_item_usage_status(
                 item_usage_tracker.0 = None;
             }
         } else {
-            if actions.is_set(PlayerActions::USE_ITEM) && inv.get_count(inv.get_selected_item()) > 0
+            if actions.0.is_set(PlayerActions::USE_ITEM)
+                && inv.get_count(inv.get_selected_item()) > 0
             {
                 item_usage_tracker.0 = Some(ItemUsageStatus::new(inv.get_selected_item()));
             }
@@ -754,15 +723,18 @@ fn stop_hand_animations(anim_player: &mut AnimationPlayer) {
 
 fn update_animations(
     player_query: Query<
-        (Entity, &PlayerID, &ItemUsageStatusTracker, &LinearVelocity),
+        (
+            Entity,
+            &PlayerActionsTracker,
+            &ItemUsageStatusTracker,
+            &LinearVelocity,
+        ),
         With<PlayerID>,
     >,
     children: Query<&Children>,
     mut anim_player_query: Query<&mut AnimationPlayer>,
-    actions: Res<PlayerActionsTracker>,
-    opp_actions: Res<OpponentActionsTracker>,
 ) {
-    for (entity, player_id, item_usage_tracker, vel) in player_query.iter() {
+    for (entity, actions, item_usage_tracker, vel) in player_query.iter() {
         for child in children.iter_descendants(entity) {
             let Ok(mut anim_player) = anim_player_query.get_mut(child) else {
                 continue;
@@ -802,15 +774,9 @@ fn update_animations(
                 }
             }
 
-            let actions = if player_id.0 == 0 {
-                actions.0
-            } else {
-                opp_actions.0
-            };
-
-            if (actions.is_set(PlayerActions::ATTACK)
-                || actions.is_set(PlayerActions::PLACE_BLOCK)
-                || actions.is_set(PlayerActions::DIG_BLOCK))
+            if (actions.0.is_set(PlayerActions::ATTACK)
+                || actions.0.is_set(PlayerActions::PLACE_BLOCK)
+                || actions.0.is_set(PlayerActions::DIG_BLOCK))
                 && !is_animation_playing(&anim_player, PLAYER_ANIMATION_INDICES.swing.into())
             {
                 stop_hand_animations(&mut anim_player);

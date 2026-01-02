@@ -1,4 +1,4 @@
-use agentduels_protocol::Item;
+use agentduels_protocol::{Item, PlayerActions};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -33,6 +33,9 @@ pub const SPAWN_ROTATIONS: [f32; 2] = [std::f32::consts::PI, 0.0];
 /// ID 0 = self, ID 1 = opponent
 #[derive(Component, Default)]
 pub struct PlayerID(pub u16);
+
+#[derive(Component, Default, Clone, Copy)]
+pub struct PlayerActionsTracker(pub PlayerActions);
 
 #[derive(Component)]
 pub struct PlayerBody;
@@ -141,6 +144,7 @@ pub struct ItemUsageStatusTracker(pub Option<ItemUsageStatus>);
 #[derive(Bundle, Default)]
 pub struct PlayerBundle {
     pub id: PlayerID,
+    pub actions: PlayerActionsTracker,
     pub health: Health,
     pub hurt_cooldown: HurtCooldown,
     pub inventory: Inventory,
