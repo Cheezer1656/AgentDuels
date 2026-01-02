@@ -13,10 +13,7 @@ use crate::states::{
     game::player::{PlayerHead, PlayerID},
 };
 use agentduels_protocol::{Item, PlayerActions};
-use avian3d::prelude::{
-    Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, Collisions, Friction,
-    LinearVelocity, LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter,
-};
+use avian3d::prelude::{Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, Collisions, Friction, LinearVelocity, LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter, SweptCcd};
 use bevy::prelude::*;
 use std::ops::RangeInclusive;
 
@@ -519,10 +516,11 @@ fn shoot_arrow(
                             [CollisionLayer::World, CollisionLayer::Player],
                         ),
                         CollisionEventsEnabled,
+                        SweptCcd::default(),
                         LockedAxes::ROTATION_LOCKED,
                         Transform::from_translation(origin),
                         LinearVelocity(dir * 50.0),
-                        Friction::new(0.0),
+                        Friction::new(100.0),
                         Restitution::new(0.0),
                         Visibility::default(),
                     ))
