@@ -13,7 +13,10 @@ use crate::states::{
     game::player::{PlayerHead, PlayerID},
 };
 use agentduels_protocol::{Item, PlayerActions};
-use avian3d::prelude::{Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, Collisions, Friction, LinearVelocity, LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter, SweptCcd};
+use avian3d::prelude::{
+    Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, Collisions, Friction,
+    LinearVelocity, LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter, SweptCcd,
+};
 use bevy::prelude::*;
 use std::ops::RangeInclusive;
 
@@ -290,8 +293,7 @@ fn update_breaking_status(
     children_query: Query<&Children>,
     chunk_map: Single<&ChunkMap>,
 ) {
-    for (actions, inv, mut breaking_status_tracker, transform, children) in
-        player_query.iter_mut()
+    for (actions, inv, mut breaking_status_tracker, transform, children) in player_query.iter_mut()
     {
         for child in children.iter() {
             let Ok(body_transform) = player_body_query.get(child) else {
