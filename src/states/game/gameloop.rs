@@ -141,7 +141,6 @@ fn move_player(
             let mut on_ground = false;
             for contact_pair in collisions.collisions_with(entity) {
                 if contact_pair.total_normal_impulse().y > 0.1 {
-                    println!("On ground!");
                     on_ground = true;
                     break;
                 }
