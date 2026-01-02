@@ -100,7 +100,7 @@ fn move_player(
     children_query: Query<&Children>,
     collisions: Collisions,
 ) {
-    for (entity, player_id, mut actions, mut vel, children) in player_query.iter_mut() {
+    for (entity, player_id, actions, mut vel, children) in player_query.iter_mut() {
         for child in children.iter() {
             let Ok(mut body_transform) = player_body_query.get_mut(child) else {
                 continue;
@@ -238,7 +238,7 @@ fn place_block(
     children_query: Query<&Children>,
     mut chunk_map: Single<&mut ChunkMap>,
 ) {
-    for (player_id, mut actions, mut inv, transform, children) in player_query.iter_mut() {
+    for (player_id, actions, mut inv, transform, children) in player_query.iter_mut() {
         for child in children.iter() {
             let Ok(body_transform) = player_body_query.get(child) else {
                 continue;
@@ -293,7 +293,7 @@ fn update_breaking_status(
     children_query: Query<&Children>,
     chunk_map: Single<&ChunkMap>,
 ) {
-    for (mut actions, inv, mut breaking_status_tracker, transform, children) in
+    for (actions, inv, mut breaking_status_tracker, transform, children) in
         player_query.iter_mut()
     {
         for child in children.iter() {
