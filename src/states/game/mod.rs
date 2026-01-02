@@ -12,7 +12,7 @@ use crate::{
         world::{Chunk, ChunkMap, WorldPlugin},
     },
 };
-use avian3d::prelude::{GravityScale, LinearDamping};
+use avian3d::prelude::{GravityScale, LinearDamping, SweptCcd};
 use avian3d::{
     PhysicsPlugins,
     prelude::{
@@ -267,6 +267,7 @@ fn setup(
                     CollisionLayer::Player,
                     [CollisionLayer::World, CollisionLayer::Projectile],
                 ),
+                SweptCcd::default(),
                 LockedAxes::ROTATION_LOCKED,
                 Friction::new(0.0),
                 Restitution::new(0.0),

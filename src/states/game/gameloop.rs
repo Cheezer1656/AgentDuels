@@ -3,8 +3,8 @@ use crate::states::game::network::GameRng;
 use crate::states::game::player::{
     BreakingStatus, BreakingStatusTracker, Health, HurtCooldown, Inventory, ItemUsageStatus,
     ItemUsageStatusTracker, PLAYER_ANIMATION_INDICES, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT,
-    PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerActionsTracker,
-    PlayerBody, PlayerHand, SPAWN_POSITIONS, SPAWN_ROTATIONS, Score,
+    PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PlayerActionsTracker, PlayerBody,
+    PlayerHand, SPAWN_POSITIONS, SPAWN_ROTATIONS, Score,
 };
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::game::{BlueScoreMarker, RedScoreMarker, TPSMarker};
@@ -14,8 +14,8 @@ use crate::states::{
 };
 use agentduels_protocol::{Item, PlayerActions};
 use avian3d::prelude::{
-    Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, Friction, LinearVelocity,
-    LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter,
+    Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, Collisions, Friction,
+    LinearVelocity, LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter,
 };
 use bevy::prelude::*;
 use std::ops::RangeInclusive;
@@ -86,9 +86,9 @@ fn change_item_in_inv(mut player_query: Query<(&PlayerActionsTracker, &mut Inven
 
 fn move_player(
     mut player_query: Query<(
+        Entity,
         &PlayerID,
         &PlayerActionsTracker,
-        &Transform,
         &mut LinearVelocity,
         &Children,
     )>,
@@ -98,9 +98,9 @@ fn move_player(
         (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
     >,
     children_query: Query<&Children>,
-    chunk_map: Single<&ChunkMap>,
+    collisions: Collisions,
 ) {
-    for (player_id, mut actions, transform, mut vel, children) in player_query.iter_mut() {
+    for (entity, player_id, mut actions, mut vel, children) in player_query.iter_mut() {
         for child in children.iter() {
             let Ok(mut body_transform) = player_body_query.get_mut(child) else {
                 continue;
@@ -138,14 +138,10 @@ fn move_player(
                 body_transform.rotation *= Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI);
             }
 
-            let p1 = transform.translation
-                - Vec3::new(PLAYER_WIDTH / 2.0, PLAYER_HEIGHT / 2.0, PLAYER_WIDTH / 2.0);
-            let p2 = p1 + Vec3::new(PLAYER_WIDTH, 0.0, 0.0);
-            let p3 = p1 + Vec3::new(0.0, 0.0, PLAYER_WIDTH);
-            let p4 = p1 + Vec3::new(PLAYER_WIDTH, 0.0, PLAYER_WIDTH);
             let mut on_ground = false;
-            for p in [p1, p2, p3, p4] {
-                if chunk_map.get_block(p.floor().as_ivec3()) != BlockType::Air {
+            for contact_pair in collisions.collisions_with(entity) {
+                if contact_pair.total_normal_impulse().y > 0.1 {
+                    println!("On ground!");
                     on_ground = true;
                     break;
                 }

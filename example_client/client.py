@@ -21,20 +21,20 @@ while True:
                     ticks += 1
                     msg = msg["TickStart"]
                     if ticks == 1:
-                        s.send(b'{"SelectItem": "Bow"}')
-                    # if ticks == 1:
-                    #     s.send(f'{{"Rotate": [1.5707963, -0.6]}}'.encode())
-                    # else:
-                    s.send(f'{{"Rotate": [0.0, 0.0]}}'.encode())
-                    # if ticks == 1:
-                    #     s.send(b'{"PlaceBlock": null}')
+                        s.send(b'{"SelectItem": "Block"}')
+                    if ticks == 1:
+                        s.send(f'{{"Rotate": [0.0, -0.6]}}'.encode())
+                    else:
+                        s.send(f'{{"Rotate": [0.0, 0.0]}}'.encode())
+                    if ticks == 1:
+                        s.send(b'{"PlaceBlock": null}')
                     # else:
                     #     s.send(b'{"DigBlock": null}')
                     # else:
-                    # s.send(b'{"Jump": null}')
+                    s.send(b'{"Jump": null}')
                     # if 30 < ticks < 154:
-                    # s.send(b'{"MoveForward": null}')
-                    s.send(b'{"UseItem": null}')
+                    s.send(b'{"MoveForward": null}')
+                    # s.send(b'{"UseItem": null}')
                     # if ticks == 20:
                     #     s.send(b'{"SelectItem": "Sword"}')
                     s.send(b'{"EndTick": null}')

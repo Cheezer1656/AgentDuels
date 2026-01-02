@@ -6,7 +6,7 @@ pub const PLAYER_HEIGHT: f32 = 1.8;
 pub const PLAYER_EYE_HEIGHT: f32 = 1.75;
 pub const PLAYER_WIDTH: f32 = 0.6;
 pub const PLAYER_SPEED: f32 = 10.0;
-pub const PLAYER_JUMP_SPEED: f32 = 2.0;
+pub const PLAYER_JUMP_SPEED: f32 = 8.0;
 pub const PLAYER_INTERACT_RANGE: f32 = 5.0;
 pub struct PlayerAnimationIndices {
     pub root: u32,
