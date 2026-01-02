@@ -43,8 +43,18 @@ pub struct PostGameUpdate;
 #[derive(PhysicsLayer, Default)]
 pub enum CollisionLayer {
     #[default]
-    Entity,
+    Default,
+    Player,
+    Projectile,
     World,
+}
+
+pub const ARROW_HEIGHT: f32 = 0.5;
+pub const ARROW_WIDTH: f32 = 0.5;
+
+#[derive(Component)]
+pub struct Arrow {
+    owner: Entity,
 }
 
 #[derive(Component)]
@@ -233,21 +243,16 @@ fn setup(
 
         let gltf_path = format!("models/player{}.gltf#Scene0", i);
         let mut graph = AnimationGraph::new();
-        graph.add_clip(
-            assets.load(GltfAssetLabel::Animation(0).from_asset(gltf_path.clone())),
-            0.1,
-            PLAYER_ANIMATION_INDICES.root.into(),
-        );
-        graph.add_clip(
-            assets.load(GltfAssetLabel::Animation(1).from_asset(gltf_path.clone())),
-            0.1,
-            PLAYER_ANIMATION_INDICES.root.into(),
-        );
-        graph.add_clip(
-            assets.load(GltfAssetLabel::Animation(2).from_asset(gltf_path.clone())),
-            1.0,
-            PLAYER_ANIMATION_INDICES.root.into(),
-        );
+        for i in 0..5 {
+            graph.add_clip(
+                assets.load(GltfAssetLabel::Animation(i).from_asset(gltf_path.clone())),
+                match i {
+                    0..=1 => 0.01,
+                    _ => 1.0,
+                },
+                PLAYER_ANIMATION_INDICES.root.into(),
+            );
+        }
 
         commands
             .spawn((
@@ -258,7 +263,10 @@ fn setup(
                 },
                 RigidBody::Dynamic,
                 Collider::cuboid(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_WIDTH),
-                CollisionLayers::new(CollisionLayer::Entity, [CollisionLayer::World]),
+                CollisionLayers::new(
+                    CollisionLayer::Player,
+                    [CollisionLayer::World, CollisionLayer::Projectile],
+                ),
                 LockedAxes::ROTATION_LOCKED,
                 Friction::new(0.0),
                 Restitution::new(0.0),

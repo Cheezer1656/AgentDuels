@@ -90,9 +90,10 @@ fn run_game_update(world: &mut World) {
             ControlMsgC2S::Jump => new_actions.set(PlayerActions::JUMP),
             ControlMsgC2S::Rotate(x, y) => new_actions.rotation = [x, y],
             ControlMsgC2S::SelectItem(item) => new_actions.item_change = Some(item),
-            ControlMsgC2S::PlaceBlock => new_actions.set(PlayerActions::PLACE_BLOCK),
-            ControlMsgC2S::DigBlock => new_actions.set(PlayerActions::DIG_BLOCK),
-            ControlMsgC2S::Attack => new_actions.set(PlayerActions::ATTACK),
+            ControlMsgC2S::Attack => new_actions.checked_set(PlayerActions::ATTACK),
+            ControlMsgC2S::UseItem => new_actions.checked_set(PlayerActions::USE_ITEM),
+            ControlMsgC2S::PlaceBlock => new_actions.checked_set(PlayerActions::PLACE_BLOCK),
+            ControlMsgC2S::DigBlock => new_actions.checked_set(PlayerActions::DIG_BLOCK),
             ControlMsgC2S::EndTick => break,
         }
     }

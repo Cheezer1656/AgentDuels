@@ -1,22 +1,25 @@
 use crate::AppState;
 use crate::states::game::network::GameRng;
 use crate::states::game::player::{
-    BreakingStatus, BreakingStatusTracker, Health, HurtCooldown, Inventory,
-    PLAYER_ANIMATION_INDICES, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT, PLAYER_INTERACT_RANGE,
-    PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerBody, PlayerHand, SPAWN_POSITIONS,
-    SPAWN_ROTATIONS, Score,
+    BreakingStatus, BreakingStatusTracker, Health, HurtCooldown, Inventory, ItemUsageStatus,
+    ItemUsageStatusTracker, PLAYER_ANIMATION_INDICES, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT,
+    PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerBody, PlayerHand,
+    SPAWN_POSITIONS, SPAWN_ROTATIONS, Score,
 };
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::game::{BlueScoreMarker, RedScoreMarker, TPSMarker};
 use crate::states::{
-    GameResults, GameUpdate, PostGameUpdate,
+    ARROW_HEIGHT, ARROW_WIDTH, Arrow, CollisionLayer, GameResults, GameUpdate, PostGameUpdate,
     game::{
         network::{OpponentActionsTracker, PlayerActionsTracker},
         player::{PlayerHead, PlayerID},
     },
 };
 use agentduels_protocol::{Item, PlayerActions};
-use avian3d::prelude::{LinearVelocity, SpatialQuery, SpatialQueryFilter};
+use avian3d::prelude::{
+    Collider, ColliderAabb, CollisionEventsEnabled, CollisionLayers, CollisionStart, Friction,
+    LinearVelocity, LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter,
+};
 use bevy::prelude::*;
 use std::ops::RangeInclusive;
 
@@ -57,13 +60,18 @@ impl Plugin for GameLoopPlugin {
                         .after(change_item_in_inv)
                         .after(move_player)
                         .after(tick_hurt_cooldown),
+                    update_item_usage_status.after(change_item_in_inv),
+                    eat_golden_apple.after(update_item_usage_status),
+                    shoot_arrow.after(update_item_usage_status),
                     tick_hurt_cooldown,
                     apply_damage_tint.after(tick_hurt_cooldown),
                     check_goal.after(move_player),
                     check_for_win.after(check_goal),
                     check_for_deaths,
                     kill_oob_players.after(move_player),
-                    update_animations.after(move_player),
+                    update_animations
+                        .after(move_player)
+                        .after(update_item_usage_status),
                     update_item_model.after(change_item_in_inv),
                 ),
             )
@@ -340,10 +348,10 @@ fn update_breaking_status(
                                 {
                                     breaking_status.ticks_left = ticks_left;
                                 } else {
-                                    breaking_status_tracker.0.take();
+                                    breaking_status_tracker.0 = None;
                                 }
                             } else {
-                                breaking_status_tracker.0.take();
+                                breaking_status_tracker.0 = None;
                             }
                         } else {
                             breaking_status_tracker.0 = Some(BreakingStatus {
@@ -351,6 +359,8 @@ fn update_breaking_status(
                                 ticks_left: 30,
                             });
                         }
+                    } else {
+                        breaking_status_tracker.0 = None;
                     }
                 }
             }
@@ -432,7 +442,7 @@ fn attack(
                                 continue;
                             }
                             health.0 -= 5.0;
-                            hurt_cooldown.0 = 10;
+                            hurt_cooldown.start();
                             vel.0 += Vec3::new(dir.x, 0.5, dir.z).normalize() * 20.0;
                             println!(
                                 "Player {:?} attacked entity {:?}, new health: {}",
@@ -445,6 +455,135 @@ fn attack(
             }
         }
     }
+}
+
+fn update_item_usage_status(
+    mut player_query: Query<(&PlayerID, &mut ItemUsageStatusTracker, &Inventory)>,
+    actions: Res<PlayerActionsTracker>,
+    opp_actions: Res<OpponentActionsTracker>,
+) {
+    for (player_id, mut item_usage_tracker, inv) in player_query.iter_mut() {
+        let actions = if player_id.0 == 0 {
+            actions.0
+        } else {
+            opp_actions.0
+        };
+
+        if let Some(item_usage) = item_usage_tracker.0.as_mut() {
+            if actions.is_set(PlayerActions::USE_ITEM) && inv.get_count(inv.get_selected_item()) > 0
+            {
+                if inv.get_selected_item() == item_usage.item {
+                    if let Some(ticks_left) = item_usage.ticks_left.checked_sub(1) {
+                        item_usage.ticks_left = ticks_left;
+                    } else {
+                        item_usage_tracker.0 = None;
+                    }
+                } else {
+                    item_usage_tracker.0 = Some(ItemUsageStatus::new(inv.get_selected_item()));
+                }
+            } else {
+                item_usage_tracker.0 = None;
+            }
+        } else {
+            if actions.is_set(PlayerActions::USE_ITEM) && inv.get_count(inv.get_selected_item()) > 0
+            {
+                item_usage_tracker.0 = Some(ItemUsageStatus::new(inv.get_selected_item()));
+            }
+        }
+    }
+}
+
+fn eat_golden_apple(
+    mut player_query: Query<(&ItemUsageStatusTracker, &mut Health, &mut Inventory)>,
+) {
+    for (item_usage_tracker, mut health, mut inv) in player_query.iter_mut() {
+        let Some(item_usage) = item_usage_tracker.0.as_ref() else {
+            continue;
+        };
+        if item_usage.item != Item::GoldenApple || item_usage.ticks_left > 0 {
+            continue;
+        }
+        *health = Health::default();
+        inv.remove_item(Item::GoldenApple, 1);
+        println!("Golden apples left: {}", inv.get_count(Item::GoldenApple));
+    }
+}
+
+fn shoot_arrow(
+    player_query: Query<(Entity, &ItemUsageStatusTracker, &Transform, &Children)>,
+    player_body_query: Query<&Transform, (With<PlayerBody>, Without<PlayerID>)>,
+    player_head_query: Query<
+        &Transform,
+        (With<PlayerHead>, Without<PlayerID>, Without<PlayerBody>),
+    >,
+    children_query: Query<&Children>,
+    mut commands: Commands,
+) {
+    for (entity, item_usage_tracker, transform, children) in player_query.iter() {
+        let Some(item_usage) = item_usage_tracker.0.as_ref() else {
+            continue;
+        };
+        if item_usage.item != Item::Bow || item_usage.ticks_left > 0 {
+            continue;
+        }
+        for child in children.iter() {
+            let Ok(body_transform) = player_body_query.get(child) else {
+                continue;
+            };
+            for child in children_query.iter_descendants(child) {
+                let Ok(head_transform) = player_head_query.get(child) else {
+                    continue;
+                };
+
+                let dir = (body_transform.rotation
+                    * Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)
+                    * head_transform.rotation)
+                    .mul_vec3(Vec3::Z)
+                    .normalize();
+                let origin = transform.translation
+                    + Vec3::new(0.0, -PLAYER_HEIGHT / 2.0 + PLAYER_EYE_HEIGHT, 0.0) // -half player height + eye height
+                    + dir;
+
+                commands
+                    .spawn((
+                        Arrow { owner: entity },
+                        RigidBody::Dynamic,
+                        Collider::cuboid(ARROW_WIDTH, ARROW_HEIGHT, ARROW_WIDTH),
+                        CollisionLayers::new(
+                            CollisionLayer::Projectile,
+                            [CollisionLayer::World, CollisionLayer::Player],
+                        ),
+                        CollisionEventsEnabled,
+                        LockedAxes::ROTATION_LOCKED,
+                        Transform::from_translation(origin),
+                        LinearVelocity(dir * 50.0),
+                        Friction::new(0.0),
+                        Restitution::new(0.0),
+                        Visibility::default(),
+                    ))
+                    .observe(handle_arrow_collision);
+            }
+        }
+    }
+}
+
+fn handle_arrow_collision(
+    event: On<CollisionStart>,
+    arrow_query: Query<&LinearVelocity, With<Arrow>>,
+    mut player_query: Query<(&mut Health, &mut HurtCooldown, &mut LinearVelocity), Without<Arrow>>,
+    mut commands: Commands,
+) {
+    let Ok(arrow_vel) = arrow_query.get(event.collider1) else {
+        return;
+    };
+    let Ok((mut health, mut hurt_cooldown, mut player_vel)) = player_query.get_mut(event.collider2)
+    else {
+        return;
+    };
+    commands.entity(event.collider1).despawn();
+    health.0 -= 9.0;
+    hurt_cooldown.start();
+    player_vel.0 += arrow_vel.0.normalize() * 20.0;
 }
 
 fn tick_hurt_cooldown(mut player_query: Query<&mut HurtCooldown>) {
@@ -590,14 +729,40 @@ fn kill_oob_players(mut player_query: Query<(&mut Health, &Transform)>) {
     }
 }
 
+fn is_animation_playing(anim_player: &AnimationPlayer, animation: AnimationNodeIndex) -> bool {
+    // I'm assuming .animation() will always be Some if the animation is playing, and the .animation() expression won't be evaluated when the first part is false
+    anim_player.is_playing_animation(animation)
+        && !anim_player.animation(animation).unwrap().is_finished()
+        && !anim_player.animation(animation).unwrap().is_paused()
+}
+
+fn stop_hand_animations(anim_player: &mut AnimationPlayer) {
+    for id in [
+        PLAYER_ANIMATION_INDICES.swing,
+        PLAYER_ANIMATION_INDICES.draw_bow,
+        PLAYER_ANIMATION_INDICES.eat,
+    ] {
+        if is_animation_playing(&anim_player, id.into()) {
+            anim_player
+                .animation_mut(id.into())
+                .unwrap()
+                .rewind()
+                .pause();
+        }
+    }
+}
+
 fn update_animations(
-    player_query: Query<(Entity, &PlayerID, &LinearVelocity), With<PlayerID>>,
+    player_query: Query<
+        (Entity, &PlayerID, &ItemUsageStatusTracker, &LinearVelocity),
+        With<PlayerID>,
+    >,
     children: Query<&Children>,
     mut anim_player_query: Query<&mut AnimationPlayer>,
     actions: Res<PlayerActionsTracker>,
     opp_actions: Res<OpponentActionsTracker>,
 ) {
-    for (entity, player_id, vel) in player_query.iter() {
+    for (entity, player_id, item_usage_tracker, vel) in player_query.iter() {
         for child in children.iter_descendants(entity) {
             let Ok(mut anim_player) = anim_player_query.get_mut(child) else {
                 continue;
@@ -616,6 +781,27 @@ fn update_animations(
                 animation.set_speed((vel.x.abs() + vel.z.abs()) * 0.25);
             }
 
+            // Stop paused or finished animations to allow other animations to use the transforms freely
+            for id in [
+                PLAYER_ANIMATION_INDICES.swing,
+                PLAYER_ANIMATION_INDICES.draw_bow,
+                PLAYER_ANIMATION_INDICES.eat,
+            ] {
+                if anim_player
+                    .animation(id.into())
+                    .map(|anim| anim.is_paused())
+                    .unwrap_or(false)
+                {
+                    anim_player.stop(id.into());
+                }
+                let Some(animation) = anim_player.animation_mut(id.into()) else {
+                    continue;
+                };
+                if animation.is_finished() {
+                    animation.rewind().pause();
+                }
+            }
+
             let actions = if player_id.0 == 0 {
                 actions.0
             } else {
@@ -625,15 +811,35 @@ fn update_animations(
             if (actions.is_set(PlayerActions::ATTACK)
                 || actions.is_set(PlayerActions::PLACE_BLOCK)
                 || actions.is_set(PlayerActions::DIG_BLOCK))
-                && (!anim_player.is_playing_animation(PLAYER_ANIMATION_INDICES.swing.into())
-                    || anim_player
-                        .animation(PLAYER_ANIMATION_INDICES.swing.into())
-                        .and_then(|anim| Some(anim.is_finished()))
-                        .unwrap_or(false))
+                && !is_animation_playing(&anim_player, PLAYER_ANIMATION_INDICES.swing.into())
             {
+                stop_hand_animations(&mut anim_player);
                 anim_player
                     .start(PLAYER_ANIMATION_INDICES.swing.into())
                     .set_speed(3.0);
+            }
+
+            if let Some(item_usage) = item_usage_tracker.0.as_ref() {
+                match item_usage.item {
+                    Item::Bow => 'inner: {
+                        if is_animation_playing(
+                            &anim_player,
+                            PLAYER_ANIMATION_INDICES.draw_bow.into(),
+                        ) {
+                            break 'inner;
+                        }
+                        stop_hand_animations(&mut anim_player);
+                        anim_player.start(PLAYER_ANIMATION_INDICES.draw_bow.into());
+                    }
+                    Item::GoldenApple => 'inner: {
+                        if is_animation_playing(&anim_player, PLAYER_ANIMATION_INDICES.eat.into()) {
+                            break 'inner;
+                        }
+                        stop_hand_animations(&mut anim_player);
+                        anim_player.start(PLAYER_ANIMATION_INDICES.eat.into());
+                    }
+                    _ => {}
+                }
             }
         }
     }
@@ -656,15 +862,16 @@ fn update_item_model(
             let Ok(entity) = player_hand_query.get(child) else {
                 continue;
             };
-            let gltf_path = format!(
-                "models/items/{}.gltf#Scene0",
-                inv.get_selected_item().to_string()
-            );
-            let new_model_entity = commands.spawn(SceneRoot(assets.load(gltf_path))).id();
-            commands
-                .entity(entity)
-                .despawn_children()
-                .add_child(new_model_entity);
+            commands.entity(entity).despawn_children();
+
+            if inv.get_count(inv.get_selected_item()) > 0 {
+                let gltf_path = format!(
+                    "models/items/{}.gltf#Scene0",
+                    inv.get_selected_item().to_string()
+                );
+                let new_model_entity = commands.spawn(SceneRoot(assets.load(gltf_path))).id();
+                commands.entity(entity).add_child(new_model_entity);
+            }
         }
     }
 }

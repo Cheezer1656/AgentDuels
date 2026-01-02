@@ -32,6 +32,16 @@ impl Item {
             Item::GoldenApple => "GoldenApple",
         }
     }
+    pub fn ticks_needed(&self) -> usize {
+        match self {
+            Item::Sword => 0,
+            Item::Pickaxe => 0,
+            Item::Bow => 25,
+            Item::Arrow => 0,
+            Item::Block => 0,
+            Item::GoldenApple => 20,
+        }
+    }
 }
 
 /// Bitflags representing player actions (Is reset every tick)
@@ -70,6 +80,8 @@ impl PlayerActions {
     pub const USE_ITEM: u16 = 1 << 6;
     pub const PLACE_BLOCK: u16 = 1 << 7;
     pub const DIG_BLOCK: u16 = 1 << 8;
+    pub const HAND_ACTION_MASK: u16 =
+        Self::ATTACK + Self::USE_ITEM + Self::PLACE_BLOCK + Self::DIG_BLOCK;
 
     pub fn is_set(&self, flag: u16) -> bool {
         self.bits & flag != 0
@@ -77,6 +89,13 @@ impl PlayerActions {
 
     pub fn set(&mut self, flag: u16) {
         self.bits |= flag;
+    }
+
+    pub fn checked_set(&mut self, flag: u16) {
+        if flag & Self::HAND_ACTION_MASK != 0 && self.bits & Self::HAND_ACTION_MASK != 0 {
+            return;
+        }
+        self.set(flag);
     }
 
     pub fn unset(&mut self, flag: u16) {

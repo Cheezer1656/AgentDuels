@@ -13,12 +13,16 @@ pub struct PlayerAnimationIndices {
     pub idle: u32,
     pub walk: u32,
     pub swing: u32,
+    pub draw_bow: u32,
+    pub eat: u32,
 }
 pub const PLAYER_ANIMATION_INDICES: PlayerAnimationIndices = PlayerAnimationIndices {
     root: 0,
     idle: 1,
     walk: 2,
     swing: 3,
+    draw_bow: 4,
+    eat: 5,
 };
 pub const SPAWN_POSITIONS: [Vec3; 2] = [
     Vec3::new(21.5, 1.0 + PLAYER_HEIGHT / 2.0, 0.5),
@@ -52,6 +56,12 @@ impl Default for Health {
 #[derive(Component, Default)]
 pub struct HurtCooldown(pub u8);
 
+impl HurtCooldown {
+    pub fn start(&mut self) {
+        self.0 = 10;
+    }
+}
+
 #[derive(Component)]
 pub struct Inventory {
     contents: HashMap<Item, u16>,
@@ -64,8 +74,11 @@ impl Inventory {
     }
 
     pub fn remove_item(&mut self, item: Item, amount: u16) {
-        *self.contents.entry(item).or_insert(0) =
-            (self.contents.get(&item).unwrap_or(&0) - amount).max(0);
+        *self.contents.entry(item).or_insert(0) = self
+            .contents
+            .get(&item)
+            .unwrap_or(&0)
+            .saturating_sub(amount);
     }
 
     pub fn select_item(&mut self, item: Item) {
@@ -86,7 +99,7 @@ impl Default for Inventory {
         contents.insert(Item::Bow, 1);
         contents.insert(Item::Arrow, 1);
         contents.insert(Item::Block, 128);
-        contents.insert(Item::GoldenApple, 8);
+        contents.insert(Item::GoldenApple, 1);
 
         Inventory {
             contents,
@@ -98,7 +111,6 @@ impl Default for Inventory {
 #[derive(Component, Default)]
 pub struct Score(pub u16);
 
-#[derive(Default)]
 pub struct BreakingStatus {
     pub block_pos: IVec3,
     pub ticks_left: usize,
@@ -108,6 +120,24 @@ pub struct BreakingStatus {
 #[derive(Component, Default)]
 pub struct BreakingStatusTracker(pub Option<BreakingStatus>);
 
+pub struct ItemUsageStatus {
+    pub item: Item,
+    pub ticks_left: usize,
+}
+
+impl ItemUsageStatus {
+    pub fn new(item: Item) -> Self {
+        Self {
+            item,
+            ticks_left: item.ticks_needed(),
+        }
+    }
+}
+
+/// Tracker for the player's item usage status
+#[derive(Component, Default)]
+pub struct ItemUsageStatusTracker(pub Option<ItemUsageStatus>);
+
 #[derive(Bundle, Default)]
 pub struct PlayerBundle {
     pub id: PlayerID,
@@ -116,5 +146,6 @@ pub struct PlayerBundle {
     pub inventory: Inventory,
     pub score: Score,
     pub breaking_status: BreakingStatusTracker,
+    pub item_usage_status: ItemUsageStatusTracker,
     pub transform: Transform,
 }

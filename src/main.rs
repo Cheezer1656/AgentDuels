@@ -36,6 +36,7 @@ pub enum ControlMsgS2C {
     },
 }
 
+/// Note: Different actions that use the player's hands cannot be executed together in the same tick. The action that is received first will be executed, and later actions will be discarded.
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub enum ControlMsgC2S {
     MoveForward,
@@ -46,9 +47,10 @@ pub enum ControlMsgC2S {
     /// Rotations do not accumulate within a tick; the last one received is used.
     Rotate(f32, f32),
     SelectItem(Item),
+    Attack,
+    UseItem,
     PlaceBlock,
     DigBlock,
-    Attack,
     EndTick,
 }
 

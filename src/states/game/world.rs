@@ -370,7 +370,10 @@ fn regen_dirty_chunks(
             .spawn((
                 RigidBody::Static,
                 Collider::from(SharedShape::new(voxel_shape)),
-                CollisionLayers::new(CollisionLayer::World, [CollisionLayer::Entity]),
+                CollisionLayers::new(
+                    CollisionLayer::World,
+                    [CollisionLayer::Player, CollisionLayer::Projectile],
+                ),
                 Friction::new(0.0),
                 Restitution::new(0.0),
                 Transform::from_xyz(0.0, 0.0, 0.0),
