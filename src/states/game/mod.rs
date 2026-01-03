@@ -272,7 +272,7 @@ fn setup(
                 Friction::new(0.0),
                 Restitution::new(0.0),
                 LinearDamping(2.0),
-                GravityScale(2.0),
+                GravityScale(3.0),
                 Visibility::default(),
                 AutoDespawn(AppState::Game),
             ))
