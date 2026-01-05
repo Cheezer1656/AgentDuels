@@ -14,11 +14,8 @@ use crate::states::{
     game::player::{PlayerHead, PlayerID},
 };
 use agentduels_protocol::{Item, PlayerActions};
-use avian3d::prelude::{
-    Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, Collisions, Friction,
-    LinearVelocity, LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter, SweptCcd,
-};
-use bevy::prelude::*;
+use avian3d::prelude::{ActiveCollisionHooks, Collider, CollisionEventsEnabled, CollisionHooks, CollisionLayers, CollisionStart, Collisions, Friction, GravityScale, LinearVelocity, LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter, SweptCcd};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use std::ops::RangeInclusive;
 
 // First goal is for player 0, second for player 1
@@ -536,17 +533,40 @@ fn shoot_arrow(
                             [CollisionLayer::World, CollisionLayer::Player],
                         ),
                         CollisionEventsEnabled,
+                        ActiveCollisionHooks::FILTER_PAIRS,
                         SweptCcd::default(),
                         LockedAxes::ROTATION_LOCKED,
                         Transform::from_translation(origin),
                         LinearVelocity(dir * 50.0),
                         Friction::new(100.0),
                         Restitution::new(0.0),
+                        GravityScale(5.0),
                         Visibility::default(),
                     ))
                     .observe(handle_arrow_collision);
             }
         }
+    }
+}
+
+#[derive(SystemParam)]
+pub struct ArrowHooks<'w, 's> {
+    arrow_query: Query<'w, 's, &'static Arrow>,
+}
+
+impl CollisionHooks for ArrowHooks<'_, '_> {
+    fn filter_pairs(&self, collider1: Entity, collider2: Entity, _commands: &mut Commands) -> bool {
+        if let Ok(arrow) = self.arrow_query.get(collider1) {
+            if arrow.ticks_in_ground > 0 {
+                return false;
+            }
+        }
+        if let Ok(arrow) = self.arrow_query.get(collider2) {
+            if arrow.ticks_in_ground > 0 {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -572,7 +592,10 @@ fn handle_arrow_collision(
     player_vel.0 += arrow_vel.0.normalize() * 20.0;
 }
 
-fn manage_arrows(mut arrow_query: Query<(Entity, &mut Arrow, &LinearVelocity)>, mut commands: Commands) {
+fn manage_arrows(
+    mut arrow_query: Query<(Entity, &mut Arrow, &LinearVelocity)>,
+    mut commands: Commands,
+) {
     for (entity, mut arrow, vel) in arrow_query.iter_mut() {
         if vel.length() < 0.1 {
             arrow.ticks_in_ground += 1;

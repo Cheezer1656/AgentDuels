@@ -1,4 +1,4 @@
-use crate::states::game::gameloop::GOAL_BOUNDS;
+use crate::states::game::gameloop::{ArrowHooks, GOAL_BOUNDS};
 use crate::states::game::player::{
     PLAYER_ANIMATION_INDICES, PLAYER_HEIGHT, PLAYER_WIDTH, PlayerBody, PlayerBundle, PlayerHand,
     SPAWN_POSITIONS, SPAWN_ROTATIONS,
@@ -79,7 +79,7 @@ impl Plugin for GamePlugin {
                 WorldPlugin,
                 NetworkPlugin,
                 GameLoopPlugin,
-                PhysicsPlugins::new(PostGameUpdate),
+                PhysicsPlugins::new(PostGameUpdate).with_collision_hooks::<ArrowHooks>(),
                 #[cfg(debug_assertions)]
                 PhysicsDebugPlugin::default(),
             ))
