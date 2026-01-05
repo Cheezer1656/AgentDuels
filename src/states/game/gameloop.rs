@@ -492,7 +492,7 @@ fn eat_golden_apple(
 }
 
 fn shoot_arrow(
-    player_query: Query<(Entity, &ItemUsageStatusTracker, &Transform, &Children)>,
+    player_query: Query<(&ItemUsageStatusTracker, &Transform, &Children)>,
     player_body_query: Query<&Transform, (With<PlayerBody>, Without<PlayerID>)>,
     player_head_query: Query<
         &Transform,
@@ -501,7 +501,7 @@ fn shoot_arrow(
     children_query: Query<&Children>,
     mut commands: Commands,
 ) {
-    for (entity, item_usage_tracker, transform, children) in player_query.iter() {
+    for (item_usage_tracker, transform, children) in player_query.iter() {
         let Some(item_usage) = item_usage_tracker.0.as_ref() else {
             continue;
         };
