@@ -30,7 +30,7 @@ use bevy::{
 use bevy_inspector_egui::bevy_egui;
 
 mod gameloop;
-mod network;
+pub mod network;
 mod player;
 mod world;
 

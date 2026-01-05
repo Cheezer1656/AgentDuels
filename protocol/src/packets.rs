@@ -44,11 +44,17 @@ impl Item {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, PartialEq)]
+pub struct Rotation {
+    pub yaw: f32,
+    pub pitch: f32,
+}
+
 /// Bitflags representing player actions (Is reset every tick)
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
 pub struct PlayerActions {
     pub bits: u16,
-    pub rotation: [f32; 2], // yaw, pitch (in radians)
+    pub rotation: Rotation,
     pub item_change: Option<Item>,
 }
 
@@ -57,8 +63,8 @@ impl PlayerActions {
         self.bits
             .to_le_bytes()
             .iter()
-            .chain(self.rotation[0].to_le_bytes().iter())
-            .chain(self.rotation[1].to_le_bytes().iter())
+            .chain(self.rotation.yaw.to_le_bytes().iter())
+            .chain(self.rotation.pitch.to_le_bytes().iter())
             .chain(
                 [if let Some(item) = self.item_change {
                     item as u8

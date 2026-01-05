@@ -1,5 +1,6 @@
 use agentduels_protocol::{Item, PlayerActions};
 use bevy::prelude::*;
+use serde::Serialize;
 use std::collections::HashMap;
 
 pub const PLAYER_HEIGHT: f32 = 1.8;
@@ -65,7 +66,7 @@ impl HurtCooldown {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Serialize, Clone)]
 pub struct Inventory {
     contents: HashMap<Item, u16>,
     selected: Item,

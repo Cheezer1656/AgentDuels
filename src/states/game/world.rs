@@ -1,3 +1,4 @@
+use crate::{AppState, AutoDespawn, states::CollisionLayer};
 use avian3d::{
     parry::{
         math::Point,
@@ -12,14 +13,13 @@ use bevy::{
     platform::collections::HashMap,
     prelude::*,
 };
-
-use crate::{AppState, AutoDespawn, states::CollisionLayer};
+use serde::Serialize;
 
 const CHUNK_WIDTH: usize = 16;
 const CHUNK_HEIGHT: usize = 16;
 const CHUNK_DEPTH: usize = 16;
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Serialize, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BlockType {
     #[default]
     Air,

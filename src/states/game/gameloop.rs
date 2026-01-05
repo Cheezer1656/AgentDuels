@@ -8,6 +8,7 @@ use crate::states::game::player::{
 };
 use crate::states::game::world::{BlockType, ChunkMap};
 use crate::states::game::{BlueScoreMarker, RedScoreMarker, TPSMarker};
+use crate::states::network::{ControlMsgQueue, ControlMsgS2C};
 use crate::states::{
     ARROW_HEIGHT, ARROW_WIDTH, Arrow, CollisionLayer, GameResults, GameUpdate, PostGameUpdate,
     game::player::{PlayerHead, PlayerID},
@@ -42,6 +43,8 @@ impl Plugin for GameLoopPlugin {
             .add_observer(reset_health_after_death)
             .add_observer(reset_player_position_on_death)
             .add_observer(reset_player_inv_on_death)
+            .add_observer(send_death_events)
+            .add_observer(send_goal_events)
             .init_resource::<LastTick>()
             .add_systems(
                 GameUpdate,
@@ -72,7 +75,15 @@ impl Plugin for GameLoopPlugin {
                     update_item_model.after(change_item_in_inv),
                 ),
             )
-            .add_systems(PostGameUpdate, (update_scoreboard, update_tps));
+            .add_systems(
+                PostGameUpdate,
+                (
+                    send_health_updates,
+                    send_inventory_updates,
+                    update_scoreboard,
+                    update_tps,
+                ),
+            );
     }
 }
 
@@ -120,10 +131,13 @@ fn move_player(
                 dir.z -= 1.0;
             }
 
-            let yaw = Quat::from_axis_angle(Vec3::Y, actions.0.rotation[0]);
+            let yaw = Quat::from_axis_angle(Vec3::Y, actions.0.rotation.yaw);
             let pitch = Quat::from_axis_angle(
                 -Vec3::X,
-                actions.0.rotation[1]
+                actions
+                    .0
+                    .rotation
+                    .pitch
                     .clamp(-std::f32::consts::FRAC_PI_2, std::f32::consts::FRAC_PI_2),
             );
             for child in children_query.iter_descendants(child) {
@@ -236,6 +250,7 @@ fn place_block(
     >,
     children_query: Query<&Children>,
     mut chunk_map: Single<&mut ChunkMap>,
+    mut control_msg_queue: ResMut<ControlMsgQueue>,
 ) {
     for (player_id, actions, mut inv, transform, children) in player_query.iter_mut() {
         for child in children.iter() {
@@ -257,16 +272,14 @@ fn place_block(
                             continue;
                         };
 
-                        chunk_map
-                            .set_block(
-                                block_pos + face,
-                                if player_id.0 == 0 {
-                                    BlockType::RedBlock
-                                } else {
-                                    BlockType::BlueBlock
-                                },
-                            )
-                            .unwrap();
+                        let block_pos = block_pos + face;
+                        let block_type = if player_id.0 == 0 {
+                            BlockType::RedBlock
+                        } else {
+                            BlockType::BlueBlock
+                        };
+                        chunk_map.set_block(block_pos, block_type).unwrap();
+                        control_msg_queue.push(ControlMsgS2C::BlockUpdate(block_pos, block_type));
 
                         inv.remove_item(Item::Block, 1);
                     }
@@ -343,6 +356,7 @@ fn update_breaking_status(
 fn break_block(
     player_query: Query<&BreakingStatusTracker, Changed<BreakingStatusTracker>>,
     mut chunk_map: Single<&mut ChunkMap>,
+    mut control_msg_queue: ResMut<ControlMsgQueue>,
 ) {
     for breaking_status_tracker in player_query.iter() {
         let Some(breaking_status) = breaking_status_tracker.0.as_ref() else {
@@ -354,6 +368,10 @@ fn break_block(
         chunk_map
             .set_block(breaking_status.block_pos, BlockType::Air)
             .unwrap();
+        control_msg_queue.push(ControlMsgS2C::BlockUpdate(
+            breaking_status.block_pos,
+            BlockType::Air,
+        ));
     }
 }
 
@@ -834,6 +852,48 @@ fn update_item_model(
                 commands.entity(entity).add_child(new_model_entity);
             }
         }
+    }
+}
+
+fn send_health_updates(
+    player_query: Query<(&PlayerID, &Health), Changed<Health>>,
+    mut control_msg_queue: ResMut<ControlMsgQueue>,
+) {
+    for (player_id, health) in player_query.iter() {
+        control_msg_queue.push(ControlMsgS2C::HealthUpdate {
+            player_id: player_id.0,
+            new_health: health.0,
+        });
+    }
+}
+
+fn send_death_events(
+    event: On<DeathEvent>,
+    player_query: Query<&PlayerID>,
+    mut control_msg_queue: ResMut<ControlMsgQueue>,
+) {
+    let player_id = player_query.get(event.0).unwrap().0;
+    control_msg_queue.push(ControlMsgS2C::Death { player_id });
+}
+
+fn send_goal_events(
+    event: On<GoalEvent>,
+    player_query: Query<&PlayerID>,
+    mut control_msg_queue: ResMut<ControlMsgQueue>,
+) {
+    let player_id = player_query.get(event.0).unwrap().0;
+    control_msg_queue.push(ControlMsgS2C::Goal { player_id });
+}
+
+fn send_inventory_updates(
+    player_query: Query<(&PlayerID, &Inventory), Changed<Inventory>>,
+    mut control_msg_queue: ResMut<ControlMsgQueue>,
+) {
+    for (player_id, inv) in player_query.iter() {
+        control_msg_queue.push(ControlMsgS2C::InventoryUpdate {
+            player_id: player_id.0,
+            new_contents: inv.clone(),
+        })
     }
 }
 

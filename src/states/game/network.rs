@@ -2,14 +2,17 @@ use std::io::{Read, Write};
 
 use crate::states::PostGameUpdate;
 use crate::states::game::GameUpdate;
-use crate::states::game::player::{PlayerActionsTracker, PlayerID};
-use crate::{ControlMsgC2S, ControlMsgS2C, ControlServer, client::GameConnection};
+use crate::states::game::player::{Inventory, PLAYER_HEIGHT, PlayerActionsTracker, PlayerID};
+use crate::states::game::world::BlockType;
+use crate::{ControlServer, client::GameConnection};
+use agentduels_protocol::packets::Rotation;
 use agentduels_protocol::{
-    Packet,
+    Item, Packet,
     packets::{PlayerActions, PlayerActionsPacket},
 };
 use bevy::prelude::*;
 use fastrand::Rng;
+use serde::{Deserialize, Serialize};
 
 #[derive(Resource, Default, Debug)]
 struct NetworkState {
@@ -28,6 +31,58 @@ enum NetworkPhase {
     AwaitingData,
 }
 
+#[derive(Serialize)]
+pub enum ControlMsgS2C {
+    TickStart {
+        tick: u64,
+        opponent_prev_actions: PlayerActions,
+        player_position: Vec3,
+        opponent_position: Vec3,
+    },
+    HealthUpdate {
+        player_id: u16,
+        new_health: f32,
+    },
+    Death {
+        player_id: u16,
+    },
+    Goal {
+        player_id: u16,
+    },
+    BlockUpdate(IVec3, BlockType),
+    InventoryUpdate {
+        player_id: u16,
+        new_contents: Inventory,
+    },
+}
+
+#[derive(Resource, Default)]
+pub struct ControlMsgQueue(Vec<ControlMsgS2C>);
+
+impl ControlMsgQueue {
+    pub fn push(&mut self, msg: ControlMsgS2C) {
+        self.0.push(msg);
+    }
+}
+
+/// Note: Different actions that use the player's hands cannot be executed together in the same tick. The action that is received first will be executed, and later actions will be discarded.
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub enum ControlMsgC2S {
+    MoveForward,
+    MoveBackward,
+    MoveLeft,
+    MoveRight,
+    Jump,
+    /// Rotations do not accumulate within a tick; the last one received is used.
+    Rotate(Rotation),
+    SelectItem(Item),
+    Attack,
+    UseItem,
+    PlaceBlock,
+    DigBlock,
+    EndTick,
+}
+
 #[derive(Message)]
 pub struct PacketEvent(Packet);
 
@@ -38,6 +93,7 @@ impl Plugin for NetworkPlugin {
         app.init_resource::<NetworkState>()
             .add_message::<PacketEvent>()
             .insert_resource(IncomingBuffer(Vec::new()))
+            .init_resource::<ControlMsgQueue>()
             .add_systems(
                 Update,
                 (
@@ -74,7 +130,7 @@ fn run_game_update(world: &mut World) {
     let messages = message_buffer[..=end_idx].to_vec();
     message_buffer.drain(..=end_idx);
     drop(message_buffer);
-    control_server.tick_start_message = None;
+    control_server.tick_start_messages = None;
 
     let mut new_actions = PlayerActions::default();
     for msg in messages {
@@ -84,7 +140,7 @@ fn run_game_update(world: &mut World) {
             ControlMsgC2S::MoveLeft => new_actions.set(PlayerActions::MOVE_LEFT),
             ControlMsgC2S::MoveRight => new_actions.set(PlayerActions::MOVE_RIGHT),
             ControlMsgC2S::Jump => new_actions.set(PlayerActions::JUMP),
-            ControlMsgC2S::Rotate(x, y) => new_actions.rotation = [x, y],
+            ControlMsgC2S::Rotate(rotation) => new_actions.rotation = rotation,
             ControlMsgC2S::SelectItem(item) => new_actions.item_change = Some(item),
             ControlMsgC2S::Attack => new_actions.checked_set(PlayerActions::ATTACK),
             ControlMsgC2S::UseItem => new_actions.checked_set(PlayerActions::USE_ITEM),
@@ -186,11 +242,17 @@ fn process_opponent_actions(
 fn send_control_start(
     mut control_server: ResMut<ControlServer>,
     mut net_state: ResMut<NetworkState>,
-    player_query: Query<(&PlayerID, &PlayerActionsTracker)>,
+    mut control_msg_queue: ResMut<ControlMsgQueue>,
+    player_query: Query<(&PlayerID, &PlayerActionsTracker, &Transform)>,
 ) {
-    let (_, opponent_actions) = player_query
+    let (_, _, player_transform) = player_query
         .iter()
-        .filter(|(player_id, _)| player_id.0 == 1)
+        .filter(|(player_id, _, _)| player_id.0 == 0)
+        .next()
+        .unwrap();
+    let (_, opponent_actions, opponent_transform) = player_query
+        .iter()
+        .filter(|(player_id, _, _)| player_id.0 == 1)
         .next()
         .unwrap();
     if net_state.phase != NetworkPhase::StartingTick || control_server.client.is_none() {
@@ -198,18 +260,27 @@ fn send_control_start(
     }
     net_state.phase = NetworkPhase::AwaitingAction;
 
-    let message = serde_json::to_string(&ControlMsgS2C::TickStart {
+    control_msg_queue.0.push(ControlMsgS2C::TickStart {
         tick: net_state.tick,
         opponent_prev_actions: opponent_actions.0,
-    })
-    .unwrap();
-    control_server.tick_start_message = Some(message.clone());
+        player_position: player_transform.translation - Vec3::ZERO.with_y(PLAYER_HEIGHT / 2.0),
+        opponent_position: opponent_transform.translation - Vec3::ZERO.with_y(PLAYER_HEIGHT / 2.0),
+    });
+    let messages = "[".to_string()
+        + &control_msg_queue
+            .0
+            .drain(..)
+            .map(|msg| serde_json::to_string(&msg).unwrap())
+            .collect::<Vec<_>>()
+            .join(",")
+        + "]";
+    control_server.tick_start_messages = Some(messages.clone());
 
     let Some(stream) = control_server.client.as_mut() else {
         return;
     };
 
-    stream.write(message.as_bytes()).unwrap();
+    stream.write(messages.as_bytes()).unwrap();
 }
 
 /// Random number generator for the game.

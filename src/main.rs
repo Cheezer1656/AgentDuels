@@ -1,9 +1,8 @@
+use crate::states::network::ControlMsgC2S;
 use crate::states::{EndMenuPlugin, GamePlugin, JoiningPlugin, MainMenuPlugin};
-use agentduels_protocol::{Item, PlayerActions};
 use bevy::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::{
     io::Read,
@@ -28,32 +27,6 @@ enum AppState {
 #[derive(Component)]
 struct AutoDespawn(AppState);
 
-#[derive(Serialize)]
-pub enum ControlMsgS2C {
-    TickStart {
-        tick: u64,
-        opponent_prev_actions: PlayerActions,
-    },
-}
-
-/// Note: Different actions that use the player's hands cannot be executed together in the same tick. The action that is received first will be executed, and later actions will be discarded.
-#[derive(Deserialize, Debug, Clone, PartialEq)]
-pub enum ControlMsgC2S {
-    MoveForward,
-    MoveBackward,
-    MoveLeft,
-    MoveRight,
-    Jump,
-    /// Rotations do not accumulate within a tick; the last one received is used.
-    Rotate(f32, f32),
-    SelectItem(Item),
-    Attack,
-    UseItem,
-    PlaceBlock,
-    DigBlock,
-    EndTick,
-}
-
 type ClientID = usize;
 
 #[derive(Resource)]
@@ -63,7 +36,7 @@ struct ControlServer {
     client_id: ClientID,
     disconnect_queue: Arc<Mutex<Vec<ClientID>>>,
     message_buffer: Arc<Mutex<Vec<ControlMsgC2S>>>,
-    tick_start_message: Option<String>,
+    tick_start_messages: Option<String>,
 }
 
 #[tokio::main]
@@ -89,7 +62,7 @@ async fn main() {
             client_id: 0,
             disconnect_queue: Arc::new(Mutex::new(Vec::new())),
             message_buffer: Arc::new(Mutex::new(Vec::new())),
-            tick_start_message: None,
+            tick_start_messages: None,
         })
         .add_systems(FixedUpdate, (handle_connection, handle_disconnects))
         .add_systems(OnExit(AppState::Joining), cleanup_state)
@@ -123,9 +96,9 @@ fn handle_connection(mut server: ResMut<ControlServer>) {
     let client_id = server.client_id;
     let disconnect_queue = server.disconnect_queue.clone();
     let message_buffer = server.message_buffer.clone();
-    let tick_start_message = server.tick_start_message.clone();
+    let tick_start_messages = server.tick_start_messages.clone();
     thread::spawn(move || {
-        if let Some(message) = tick_start_message {
+        if let Some(message) = tick_start_messages {
             stream.write(message.as_bytes()).unwrap();
         }
         let mut buf = [0; 128];
