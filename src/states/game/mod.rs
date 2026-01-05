@@ -52,9 +52,9 @@ pub enum CollisionLayer {
 pub const ARROW_HEIGHT: f32 = 0.5;
 pub const ARROW_WIDTH: f32 = 0.5;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Arrow {
-    owner: Entity,
+    ticks_in_ground: usize,
 }
 
 #[derive(Component)]

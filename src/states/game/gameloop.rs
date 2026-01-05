@@ -63,6 +63,7 @@ impl Plugin for GameLoopPlugin {
                     update_item_usage_status.after(change_item_in_inv),
                     eat_golden_apple.after(update_item_usage_status),
                     shoot_arrow.after(update_item_usage_status),
+                    manage_arrows,
                     tick_hurt_cooldown,
                     apply_damage_tint.after(tick_hurt_cooldown),
                     check_goal.after(move_player),
@@ -527,7 +528,7 @@ fn shoot_arrow(
 
                 commands
                     .spawn((
-                        Arrow { owner: entity },
+                        Arrow::default(),
                         RigidBody::Dynamic,
                         Collider::cuboid(ARROW_WIDTH, ARROW_HEIGHT, ARROW_WIDTH),
                         CollisionLayers::new(
@@ -551,13 +552,16 @@ fn shoot_arrow(
 
 fn handle_arrow_collision(
     event: On<CollisionStart>,
-    arrow_query: Query<&LinearVelocity, With<Arrow>>,
+    arrow_query: Query<(&Arrow, &LinearVelocity)>,
     mut player_query: Query<(&mut Health, &mut HurtCooldown, &mut LinearVelocity), Without<Arrow>>,
     mut commands: Commands,
 ) {
-    let Ok(arrow_vel) = arrow_query.get(event.collider1) else {
+    let Ok((arrow, arrow_vel)) = arrow_query.get(event.collider1) else {
         return;
     };
+    if arrow.ticks_in_ground > 0 {
+        return;
+    }
     let Ok((mut health, mut hurt_cooldown, mut player_vel)) = player_query.get_mut(event.collider2)
     else {
         return;
@@ -566,6 +570,19 @@ fn handle_arrow_collision(
     health.0 -= 9.0;
     hurt_cooldown.start();
     player_vel.0 += arrow_vel.0.normalize() * 20.0;
+}
+
+fn manage_arrows(mut arrow_query: Query<(Entity, &mut Arrow, &LinearVelocity)>, mut commands: Commands) {
+    for (entity, mut arrow, vel) in arrow_query.iter_mut() {
+        if vel.length() < 0.1 {
+            arrow.ticks_in_ground += 1;
+            if arrow.ticks_in_ground > 100 {
+                commands.entity(entity).despawn();
+            }
+        } else {
+            arrow.ticks_in_ground = 0;
+        }
+    }
 }
 
 fn tick_hurt_cooldown(mut player_query: Query<&mut HurtCooldown>) {

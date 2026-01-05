@@ -10,14 +10,19 @@ while True:
             client.select_item("Block")
             client.rotate(0.0, -0.6)
             client.place_block()
-        else:
+        elif tick == 2:
+            client.select_item("Bow")
+        elif tick == 28:
+            client.select_item("Sword")
+
+        if 2 <= tick <= 27:
+            client.rotate(0.0, -0.2)
+            client.use_item()
+        elif tick >= 28:
             client.rotate(0.0, 0.0)
             client.move_forward()
             client.jump()
             client.attack()
-
-        if tick == 2:
-            client.select_item("Sword")
 
     def on_health_change(player_id, new_health):
         print(f"Player {player_id} health changed to {new_health}")
