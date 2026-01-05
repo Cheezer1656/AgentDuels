@@ -80,6 +80,7 @@ impl Plugin for GamePlugin {
                 NetworkPlugin,
                 GameLoopPlugin,
                 PhysicsPlugins::new(PostGameUpdate),
+                #[cfg(debug_assertions)]
                 PhysicsDebugPlugin::default(),
             ))
             .add_systems(OnEnter(AppState::Game), (setup, cursor_grab))

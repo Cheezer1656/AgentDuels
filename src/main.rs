@@ -47,7 +47,9 @@ async fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
+            #[cfg(debug_assertions)]
             EguiPlugin::default(),
+            #[cfg(debug_assertions)]
             WorldInspectorPlugin::new(),
         ))
         .insert_resource(AmbientLight {
