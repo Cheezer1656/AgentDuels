@@ -14,7 +14,11 @@ use crate::states::{
     game::player::{PlayerHead, PlayerID},
 };
 use agentduels_protocol::{Item, PlayerActions};
-use avian3d::prelude::{ActiveCollisionHooks, Collider, CollisionEventsEnabled, CollisionHooks, CollisionLayers, CollisionStart, Collisions, Friction, GravityScale, LinearVelocity, LockedAxes, Restitution, RigidBody, SpatialQuery, SpatialQueryFilter, SweptCcd};
+use avian3d::prelude::{
+    ActiveCollisionHooks, Collider, CollisionEventsEnabled, CollisionHooks, CollisionLayers,
+    CollisionStart, Collisions, Friction, GravityScale, LinearVelocity, LockedAxes, Restitution,
+    RigidBody, SpatialQuery, SpatialQueryFilter, SweptCcd,
+};
 use bevy::{ecs::system::SystemParam, prelude::*};
 use std::ops::RangeInclusive;
 
@@ -374,7 +378,13 @@ fn break_block(
 }
 
 fn attack(
-    player_query: Query<(Entity, &PlayerActionsTracker, &Transform, &Children)>,
+    player_query: Query<(
+        Entity,
+        &PlayerActionsTracker,
+        &Inventory,
+        &Transform,
+        &Children,
+    )>,
     player_body_query: Query<&Transform, (With<PlayerBody>, Without<PlayerID>)>,
     player_head_query: Query<
         &Transform,
@@ -387,7 +397,7 @@ fn attack(
     >,
     spatial_query: SpatialQuery,
 ) {
-    for (entity, actions, transform, children) in player_query.iter() {
+    for (entity, actions, inv, transform, children) in player_query.iter() {
         if actions.0.is_set(PlayerActions::ATTACK) {
             for child in children.iter() {
                 let Ok(body_transform) = player_body_query.get(child) else {
@@ -422,7 +432,7 @@ fn attack(
                             if hurt_cooldown.0 > 0 {
                                 continue;
                             }
-                            health.0 -= 5.0;
+                            health.0 -= inv.get_selected_item().damage();
                             hurt_cooldown.start();
                             vel.0 += Vec3::new(dir.x, 0.5, dir.z).normalize() * 20.0;
                             println!(

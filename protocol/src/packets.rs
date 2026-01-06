@@ -42,6 +42,16 @@ impl Item {
             Item::GoldenApple => 20,
         }
     }
+    pub fn damage(&self) -> f32 {
+        match self {
+            Item::Sword => 4.0,
+            Item::Pickaxe => 2.0,
+            Item::Bow => 0.5,
+            Item::Arrow => 0.5,
+            Item::Block => 0.5,
+            Item::GoldenApple => 0.5,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, PartialEq)]
