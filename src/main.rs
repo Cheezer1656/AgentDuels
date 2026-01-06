@@ -105,7 +105,7 @@ fn handle_connection(mut server: ResMut<ControlServer>) {
         }
         let mut buf = [0; 128];
         loop {
-            let n = stream.read(&mut buf).unwrap();
+            let n = stream.read(&mut buf).unwrap_or(0);
             if n == 0 {
                 disconnect_queue.lock().unwrap().push(client_id);
                 break;
