@@ -40,19 +40,26 @@ class Position:
         self.y = y
         self.z = z
 
+    def get(self):
+        return [self.x, self.y, self.z]
+
 class Rotation:
     def __init__(self, yaw=0.0, pitch=0.0):
         self.yaw = yaw
         self.pitch = pitch
 
 class Item:
-    sword = "Sword"
-    block = "Block"
+    SWORD = "Sword"
+    PICKAXE = "Pickaxe"
+    BOW = "Bow"
+    ARROW = "Arrow"
+    BLOCK = "Block"
+    GOLDEN_APPLE = "GoldenApple"
 
 class Inventory:
     def __init__(self):
         self.items = {}
-        self.selected_item = Item.sword
+        self.selected_item = Item.SWORD
 
     def update(self, inventory_data):
         for item_name, count in inventory_data["contents"].items():
@@ -98,38 +105,37 @@ class Player:
         self.inventory = Inventory()
         self.actions = None
 
-BLOCKS = {
-    "Air": 0,
-    "Grass": 1,
-    "Dirt": 2,
-    "Stone": 3,
-    "RedBlock": 4,
-    "BlueBlock": 5,
-    "WhiteBlock": 6,
-}
+class Block:
+    AIR = 0
+    GRASS = 1
+    DIRT = 2
+    STONE = 3
+    RED_BLOCK = 4
+    BLUE_BLOCK = 5
+    WHITE_BLOCK = 6
 
 class Chunk:
     def __init__(self):
-        self.blocks = [[[BLOCKS["Air"] for _ in range(16)] for _ in range(16)] for _ in range(16)]
+        self.blocks = [[[Block.AIR for _ in range(16)] for _ in range(16)] for _ in range(16)]
 
 class ChunkMap:
     def __init__(self):
         self.chunks = {}
 
     def process_pos(x, y, z):
-        chunk_x = x // 16
-        chunk_y = y // 16
-        chunk_z = z // 16
-        local_x = x % 16
-        local_y = y % 16
-        local_z = z % 16
+        chunk_x = int(x // 16)
+        chunk_y = int(y // 16)
+        chunk_z = int(z // 16)
+        local_x = int(x % 16)
+        local_y = int(y % 16)
+        local_z = int(z % 16)
         return (chunk_x, chunk_y, chunk_z), (local_x, local_y, local_z)
 
     def get_block(self, x, y, z):
         chunk_key, (local_x, local_y, local_z) = ChunkMap.process_pos(x, y, z)
         if chunk_key in self.chunks:
             return self.chunks[chunk_key].blocks[local_x][local_y][local_z]
-        return BLOCKS["Air"]
+        return Block.AIR
 
     def set_block(self, x, y, z, block_type):
         chunk_key, (local_x, local_y, local_z) = ChunkMap.process_pos(x, y, z)

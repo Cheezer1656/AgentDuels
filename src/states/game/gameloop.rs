@@ -397,6 +397,7 @@ fn attack(
     >,
     spatial_query: SpatialQuery,
 ) {
+    let mut hit_queue: Vec<(Entity, f32, Vec3)> = Vec::new();
     for (entity, actions, inv, transform, children) in player_query.iter() {
         if actions.0.is_set(PlayerActions::ATTACK) {
             for child in children.iter() {
@@ -414,10 +415,13 @@ fn attack(
                         * head_transform.rotation)
                         .mul_vec3(Vec3::Z);
 
+                    let (_, _, vel) = player_query_2.get(entity).unwrap();
+                    let reach = (PLAYER_INTERACT_RANGE / PLAYER_SPEED * vel.0.with_y(0.0).length()).min(PLAYER_INTERACT_RANGE);
+
                     let hits = spatial_query.ray_hits(
                         origin,
                         Dir3::new(dir).unwrap(),
-                        PLAYER_INTERACT_RANGE,
+                        reach,
                         10,
                         true,
                         &SpatialQueryFilter::default(),
@@ -426,24 +430,22 @@ fn attack(
                         if hit.entity == entity {
                             continue;
                         }
-                        if let Ok((mut health, mut hurt_cooldown, mut vel)) =
-                            player_query_2.get_mut(hit.entity)
-                        {
-                            if hurt_cooldown.0 > 0 {
-                                continue;
-                            }
-                            health.0 -= inv.get_selected_item().damage();
-                            hurt_cooldown.start();
-                            vel.0 += Vec3::new(dir.x, 0.5, dir.z).normalize() * 20.0;
-                            println!(
-                                "Player {:?} attacked entity {:?}, new health: {}",
-                                entity, hit.entity, health.0
-                            );
-                            break;
-                        }
+                        hit_queue.push((hit.entity, inv.get_selected_item().damage(), Vec3::new(dir.x, 0.5, dir.z).normalize() * 20.0));
                     }
                 }
             }
+        }
+    }
+    for (entity, damage, knockback) in hit_queue {
+        if let Ok((mut health, mut hurt_cooldown, mut vel)) =
+            player_query_2.get_mut(entity)
+        {
+            if hurt_cooldown.0 > 0 {
+                continue;
+            }
+            health.0 -= damage;
+            hurt_cooldown.start();
+            vel.0 += knockback;
         }
     }
 }

@@ -1,27 +1,28 @@
 from time import sleep
+import traceback
 
-from agentduels import AgentDuelsClient
+from agentduels import *
 
 while True:
     client = AgentDuelsClient()
 
     def on_tick(tick):
         if tick == 1:
-            client.select_item("Block")
+            client.select_item(Item.BLOCK)
             client.rotate(0.0, -0.6)
             client.place_block()
         elif tick == 2:
-            client.select_item("Bow")
-        elif tick == 28:
-            client.select_item("Sword")
+            client.select_item(Item.SWORD)
 
-        if 2 <= tick <= 27:
-            client.rotate(0.0, -0.2)
-            client.use_item()
-        elif tick >= 28:
+        if tick >= 2:
             client.rotate(0.0, 0.0)
             client.move_forward()
-            client.jump()
+            pos = client.state.players[0].pos.get()
+            pos[0] = round(pos[0] - 1)  # Look one block ahead
+            pos[1] = round(pos[1])
+            if client.state.map.get_block(*pos) != Block.AIR:
+                print("Block detected ahead, jumping")
+                client.jump()
             client.attack()
 
     def on_health_change(player_id, new_health):
@@ -50,7 +51,6 @@ while True:
         client.start(verbosity=1)
     except ConnectionRefusedError:
         pass
-    except Exception as e:
-        print(f"{e.__class__.__name__}: {e}")
-        pass
+    except Exception:
+        traceback.print_exc()
     sleep(1)
