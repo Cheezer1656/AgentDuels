@@ -27,7 +27,7 @@ pub const PLAYER_ANIMATION_INDICES: PlayerAnimationIndices = PlayerAnimationIndi
 };
 pub const SPAWN_POSITIONS: [Vec3; 2] = [
     Vec3::new(21.5, 1.0 + PLAYER_HEIGHT / 2.0, 0.5),
-    Vec3::new(-21.5, 1.0 + PLAYER_HEIGHT / 2.0, 0.5),
+    Vec3::new(-20.5, 1.0 + PLAYER_HEIGHT / 2.0, 0.5),
 ];
 pub const SPAWN_ROTATIONS: [f32; 2] = [std::f32::consts::PI, 0.0];
 

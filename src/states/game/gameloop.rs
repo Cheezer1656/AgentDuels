@@ -23,7 +23,7 @@ pub const GOAL_BOUNDS: [(
     RangeInclusive<i32>,
     RangeInclusive<i32>,
     RangeInclusive<i32>,
-); 2] = [(-25..=-23, -3..=-1, -1..=1), (23..=25, -3..=-1, -1..=1)];
+); 2] = [(-27..=-25, -3..=-1, -1..=1), (25..=27, -3..=-1, -1..=1)];
 
 #[derive(EntityEvent)]
 struct GoalEvent(Entity);
