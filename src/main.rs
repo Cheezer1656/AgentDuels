@@ -39,8 +39,7 @@ struct ControlServer {
     tick_start_messages: Option<String>,
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let listener = TcpListener::bind(CONTROL_ADDR).unwrap();
     listener.set_nonblocking(true).unwrap();
 
