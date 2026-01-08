@@ -1,8 +1,0 @@
-[package]
-name = "headless"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-agentduels = { version = "0.1.0", path = ".." }
-agentduels_protocol.workspace = true
