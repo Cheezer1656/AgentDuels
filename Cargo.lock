@@ -322,7 +322,6 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
- "tokio",
 ]
 
 [[package]]
