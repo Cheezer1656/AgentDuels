@@ -3,15 +3,12 @@ use crate::states::game::player::{
     PLAYER_ANIMATION_INDICES, PLAYER_HEIGHT, PLAYER_WIDTH, PlayerBody, PlayerBundle, PlayerHand,
     SPAWN_POSITIONS, SPAWN_ROTATIONS,
 };
-use crate::{
-    AppState, AutoDespawn, ControlServer,
-    states::game::{
-        gameloop::GameLoopPlugin,
-        network::NetworkPlugin,
-        player::{PlayerHead, PlayerID},
-        world::{Chunk, ChunkMap, WorldPlugin},
-    },
-};
+use crate::{states::game::{
+    gameloop::GameLoopPlugin,
+    network::NetworkPlugin,
+    player::{PlayerHead, PlayerID},
+    world::{Chunk, ChunkMap, WorldPlugin},
+}, AppState, AutoDespawn};
 use avian3d::prelude::{GravityScale, LinearDamping, SweptCcd};
 use avian3d::{
     PhysicsPlugins,
@@ -28,6 +25,7 @@ use bevy::{
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
 use bevy_inspector_egui::bevy_egui;
+use agentduels::ControlServer;
 
 mod gameloop;
 pub mod network;
@@ -69,7 +67,15 @@ struct TPSMarker;
 #[derive(Component)]
 struct ClientStatusMarker;
 
-pub struct GamePlugin;
+pub struct GamePlugin {
+    headless: bool,
+}
+
+impl GamePlugin {
+    pub fn new(headless: bool) -> Self {
+        Self { headless }
+    }
+}
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
@@ -80,19 +86,26 @@ impl Plugin for GamePlugin {
                 NetworkPlugin,
                 GameLoopPlugin,
                 PhysicsPlugins::new(PostGameUpdate).with_collision_hooks::<ArrowHooks>(),
+            ));
+
+        if !self.headless {
+            app.add_plugins(
                 #[cfg(debug_assertions)]
-                PhysicsDebugPlugin::default(),
-            ))
-            .add_systems(OnEnter(AppState::Game), (setup, cursor_grab))
-            .add_systems(OnExit(AppState::Game), cursor_ungrab)
-            .add_systems(
-                Update,
-                (toggle_cursor_grab, move_cam).run_if(in_state(AppState::Game)),
+                PhysicsDebugPlugin::default()
             )
-            .add_systems(
-                FixedUpdate,
-                update_client_status.run_if(resource_changed::<ControlServer>),
-            );
+                .add_systems(OnEnter(AppState::Game), (setup, cursor_grab))
+                .add_systems(OnExit(AppState::Game), cursor_ungrab)
+                .add_systems(
+                    Update,
+                    (toggle_cursor_grab, move_cam).run_if(in_state(AppState::Game)),
+                )
+                .add_systems(
+                    FixedUpdate,
+                    update_client_status.run_if(resource_changed::<ControlServer>),
+                );
+        } else {
+            app.add_systems(Startup, setup);
+        }
     }
 }
 

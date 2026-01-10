@@ -1,9 +1,8 @@
-use agentduels::SERVER_ADDR;
 use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task, block_on, futures_lite::future},
 };
-
+use agentduels::SERVER_ADDR;
 use crate::{AppState, AutoDespawn, client::GameConnection};
 
 pub struct JoiningPlugin;
