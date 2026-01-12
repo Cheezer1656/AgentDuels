@@ -1,4 +1,5 @@
 use agentduels::states::GamePlugin;
+use agentduels::states::network::OpponentDisconnected;
 use agentduels::{
     ControlServer, SERVER_ADDR, client::GameConnection, handle_connection, handle_disconnects,
 };
@@ -31,5 +32,13 @@ fn main() {
         .insert_resource(ControlServer::new(listener))
         .add_systems(FixedUpdate, (handle_connection, handle_disconnects))
         .add_plugins(GamePlugin::new(true))
+        .add_observer(handle_opponent_disconnect)
         .run();
+}
+
+fn handle_opponent_disconnect(
+    _: On<OpponentDisconnected>,
+    mut exit_writer: MessageWriter<AppExit>,
+) {
+    exit_writer.write(AppExit::Success);
 }

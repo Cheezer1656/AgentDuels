@@ -1,10 +1,10 @@
 use std::io::{Read, Write};
 
-use crate::states::PostGameUpdate;
 use crate::states::game::GameUpdate;
 use crate::states::game::player::{Inventory, PLAYER_HEIGHT, PlayerActionsTracker, PlayerID};
 use crate::states::game::world::BlockType;
-use crate::{ControlServer, client::GameConnection};
+use crate::states::{GameResults, PostGameUpdate};
+use crate::{AppState, ControlServer, client::GameConnection};
 use agentduels_protocol::packets::Rotation;
 use agentduels_protocol::{
     Item, Packet,
@@ -83,6 +83,9 @@ pub enum ControlMsgC2S {
     EndTick,
 }
 
+#[derive(Event)]
+pub struct OpponentDisconnected;
+
 pub struct NetworkPlugin {
     headless: bool,
 }
@@ -107,7 +110,8 @@ impl Plugin for NetworkPlugin {
             .init_resource::<ControlMsgQueue>();
 
         if !self.headless {
-            app.add_systems(Update, systems.run_if(in_state(crate::AppState::Game)));
+            app.add_systems(Update, (systems.run_if(in_state(AppState::Game)),))
+                .add_observer(handle_opponent_disconnect);
         } else {
             app.add_systems(Update, systems);
         }
@@ -197,6 +201,7 @@ fn process_opponent_actions(
     mut net_state: ResMut<NetworkState>,
     mut connection: ResMut<GameConnection>,
     mut player_query: Query<(&PlayerID, &mut PlayerActionsTracker)>,
+    mut commands: Commands,
 ) {
     if net_state.phase != NetworkPhase::AwaitingData {
         return;
@@ -206,7 +211,7 @@ fn process_opponent_actions(
     let mut len = 0;
     match connection.socket.read(buf.as_mut_slice()) {
         Ok(0) => {
-            todo!("Opponent disconnect");
+            commands.trigger(OpponentDisconnected);
         }
         Ok(n) => {
             len = n;
@@ -289,6 +294,11 @@ fn send_control_start(
     };
 
     stream.write(messages.as_bytes()).unwrap();
+}
+
+fn handle_opponent_disconnect(_: On<OpponentDisconnected>, mut commands: Commands) {
+    commands.insert_resource(GameResults { winner: None });
+    commands.set_state(AppState::EndMenu);
 }
 
 /// Random number generator for the game.

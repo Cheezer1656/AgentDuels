@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 #[derive(Resource)]
 pub struct GameResults {
-    pub(crate) winner: u16,
+    pub(crate) winner: Option<u16>,
 }
 
 #[derive(Component)]
@@ -38,10 +38,10 @@ fn setup(mut commands: Commands, game_results: Res<GameResults>) {
         },
         children![
             (
-                Text::new(if game_results.winner == 0 {
-                    "You win!"
-                } else {
-                    "You lose"
+                Text::new(match game_results.winner {
+                    Some(0) => "You win!",
+                    Some(_) => "You lose!",
+                    None => "Opponent disconnected!",
                 }),
                 TextFont::default().with_font_size(100.0),
             ),

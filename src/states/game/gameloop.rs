@@ -687,7 +687,7 @@ fn check_for_win(player_query: Query<(&PlayerID, &Score), Changed<Score>>, mut c
     for (player_id, score) in player_query.iter() {
         if score.0 >= 5 {
             commands.insert_resource(GameResults {
-                winner: player_id.0,
+                winner: Some(player_id.0),
             });
             commands.set_state(AppState::EndMenu);
         }
