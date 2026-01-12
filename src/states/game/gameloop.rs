@@ -416,7 +416,8 @@ fn attack(
                         .mul_vec3(Vec3::Z);
 
                     let (_, _, vel) = player_query_2.get(entity).unwrap();
-                    let reach = (PLAYER_INTERACT_RANGE / PLAYER_SPEED * vel.0.with_y(0.0).length()).min(PLAYER_INTERACT_RANGE);
+                    let reach = (PLAYER_INTERACT_RANGE / PLAYER_SPEED * vel.0.with_y(0.0).length())
+                        .min(PLAYER_INTERACT_RANGE);
 
                     let hits = spatial_query.ray_hits(
                         origin,
@@ -430,16 +431,18 @@ fn attack(
                         if hit.entity == entity {
                             continue;
                         }
-                        hit_queue.push((hit.entity, inv.get_selected_item().damage(), Vec3::new(dir.x, 0.5, dir.z).normalize() * 20.0));
+                        hit_queue.push((
+                            hit.entity,
+                            inv.get_selected_item().damage(),
+                            Vec3::new(dir.x, 0.5, dir.z).normalize() * 20.0,
+                        ));
                     }
                 }
             }
         }
     }
     for (entity, damage, knockback) in hit_queue {
-        if let Ok((mut health, mut hurt_cooldown, mut vel)) =
-            player_query_2.get_mut(entity)
-        {
+        if let Ok((mut health, mut hurt_cooldown, mut vel)) = player_query_2.get_mut(entity) {
             if hurt_cooldown.0 > 0 {
                 continue;
             }

@@ -1,9 +1,9 @@
+use crate::states::network::ControlMsgC2S;
+use bevy::prelude::{Component, ResMut, Resource, States};
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use bevy::prelude::{Component, ResMut, Resource, States};
-use crate::states::network::ControlMsgC2S;
 
 pub mod client;
 pub mod states;

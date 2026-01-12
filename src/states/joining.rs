@@ -3,7 +3,7 @@ use bevy::{
     tasks::{AsyncComputeTaskPool, Task, block_on, futures_lite::future},
 };
 
-use crate::{AppState, AutoDespawn, client::GameConnection, SERVER_ADDR};
+use crate::{AppState, AutoDespawn, SERVER_ADDR, client::GameConnection};
 
 pub struct JoiningPlugin;
 

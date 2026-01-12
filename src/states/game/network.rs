@@ -107,15 +107,9 @@ impl Plugin for NetworkPlugin {
             .init_resource::<ControlMsgQueue>();
 
         if !self.headless {
-            app.add_systems(
-                Update,
-                systems.run_if(in_state(crate::AppState::Game)),
-            );
+            app.add_systems(Update, systems.run_if(in_state(crate::AppState::Game)));
         } else {
-            app.add_systems(
-                Update,
-                systems,
-            );
+            app.add_systems(Update, systems);
         }
     }
 }
@@ -184,7 +178,8 @@ fn run_game_update(world: &mut World) {
     let nonce: u128 = rand::random();
     let action_hash: [u8; 32] = hash_actions(&new_actions, nonce);
 
-    world.resource_mut::<GameConnection>()
+    world
+        .resource_mut::<GameConnection>()
         .send_packet(Packet::PlayerActions(Box::new(PlayerActionsPacket {
             prev_actions,
             nonce: prev_nonce,
@@ -216,19 +211,27 @@ fn process_opponent_actions(
         Ok(n) => {
             len = n;
         }
-        Err(e) => if e.kind() != std::io::ErrorKind::WouldBlock {
-            println!("Error reading from socket: {}", e);
-            return;
+        Err(e) => {
+            if e.kind() != std::io::ErrorKind::WouldBlock {
+                println!("Error reading from socket: {}", e);
+                return;
+            }
         }
     }
 
-    if let Ok(packet) = connection.codec.read(&buf[..len]) && let Some(packet) = packet && let Packet::PlayerActions(actions_packet) = packet {
-        if net_state.tick > 0 { // Skip the first tick since we have no previous data
-            let expected_hash: [u8; 32] = hash_actions(
-                &actions_packet.prev_actions,
-                actions_packet.nonce,
+    if let Ok(packet) = connection.codec.read(&buf[..len])
+        && let Some(packet) = packet
+        && let Packet::PlayerActions(actions_packet) = packet
+    {
+        if net_state.tick > 0 {
+            // Skip the first tick since we have no previous data
+            let expected_hash: [u8; 32] =
+                hash_actions(&actions_packet.prev_actions, actions_packet.nonce);
+            assert_eq!(
+                expected_hash, net_state.prev_hash,
+                "Opponent's previous actions hash does not match expected hash! (Action: {:?}, Bits: {:b}, Nonce: {})",
+                actions_packet.prev_actions, actions_packet.prev_actions.bits, actions_packet.nonce
             );
-            assert_eq!(expected_hash, net_state.prev_hash, "Opponent's previous actions hash does not match expected hash! (Action: {:?}, Bits: {:b}, Nonce: {})", actions_packet.prev_actions, actions_packet.prev_actions.bits, actions_packet.nonce);
         }
 
         let (_, mut opponent_actions) = player_query

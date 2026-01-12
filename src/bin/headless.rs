@@ -1,10 +1,12 @@
 use agentduels::states::GamePlugin;
-use agentduels::{client::GameConnection, handle_connection, handle_disconnects, ControlServer, SERVER_ADDR};
+use agentduels::{
+    ControlServer, SERVER_ADDR, client::GameConnection, handle_connection, handle_disconnects,
+};
+use bevy::DefaultPlugins;
 use bevy::app::App;
 use bevy::prelude::*;
-use bevy::render::settings::{RenderCreation, WgpuSettings};
 use bevy::render::RenderPlugin;
-use bevy::DefaultPlugins;
+use bevy::render::settings::{RenderCreation, WgpuSettings};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener};
 
 const CONTROL_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8083);

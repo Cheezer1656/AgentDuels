@@ -1,9 +1,9 @@
-use std::collections::VecDeque;
 use aes_gcm::{
     AeadCore, Aes256Gcm, KeyInit,
     aead::{Aead, OsRng},
 };
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 
 pub mod packets;
 

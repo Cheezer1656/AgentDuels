@@ -1,5 +1,5 @@
 use agentduels::states::{EndMenuPlugin, GamePlugin, JoiningPlugin, MainMenuPlugin};
-use agentduels::{handle_connection, handle_disconnects, AppState, AutoDespawn, ControlServer};
+use agentduels::{AppState, AutoDespawn, ControlServer, handle_connection, handle_disconnects};
 use bevy::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -26,7 +26,12 @@ fn main() {
             ..default()
         })
         .insert_state(AppState::MainMenu)
-        .add_plugins((MainMenuPlugin, JoiningPlugin, EndMenuPlugin, GamePlugin::new(false)))
+        .add_plugins((
+            MainMenuPlugin,
+            JoiningPlugin,
+            EndMenuPlugin,
+            GamePlugin::new(false),
+        ))
         .insert_resource(ControlServer::new(listener))
         .add_systems(FixedUpdate, (handle_connection, handle_disconnects))
         .add_systems(OnExit(AppState::Joining), cleanup_state)
