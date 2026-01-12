@@ -24,13 +24,18 @@ impl GameConnection {
     pub fn connect(addr: SocketAddr) -> anyhow::Result<Self> {
         let mut socket = TcpStream::connect(addr).expect("Failed to connect to game server");
 
-        let codec = PacketCodec::default();
+        let mut codec = PacketCodec::default();
 
         let mut buf = [0; 16];
         socket.read(buf.as_mut_slice())?;
         println!("Read {:?} bytes", &buf);
-        let Packet::MatchID(ref packet) = codec.read(&buf)?[0] else {
-            bail!("Expected MatchID packet");
+        let packet = loop {
+            if let Some(packet) = codec.read(&buf)? {
+                let Packet::MatchID(packet) = packet else {
+                    bail!("Expected MatchID packet");
+                };
+                break packet;
+            }
         };
 
         println!("Match ID: {}", packet.id);
@@ -43,8 +48,14 @@ impl GameConnection {
 
         let mut buf = [0; 16];
         socket.read(buf.as_mut_slice())?;
-        let Packet::Handshake(ref packet) = codec.read(&buf)?[0] else {
-            bail!("Expected Handshake packet");
+        println!("Read {:?} bytes", &buf);
+        let packet = loop {
+            if let Some(packet) = codec.read(&buf)? {
+                let Packet::Handshake(packet) = packet else {
+                    bail!("Expected Handshake packet");
+                };
+                break packet;
+            }
         };
 
         println!(

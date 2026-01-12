@@ -69,7 +69,15 @@ struct TPSMarker;
 #[derive(Component)]
 struct ClientStatusMarker;
 
-pub struct GamePlugin;
+pub struct GamePlugin {
+    headless: bool,
+}
+
+impl GamePlugin {
+    pub fn new(headless: bool) -> Self {
+        Self { headless }
+    }
+}
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
@@ -77,22 +85,28 @@ impl Plugin for GamePlugin {
             .add_schedule(Schedule::new(PostGameUpdate))
             .add_plugins((
                 WorldPlugin,
-                NetworkPlugin,
+                NetworkPlugin::new(self.headless),
                 GameLoopPlugin,
                 PhysicsPlugins::new(PostGameUpdate).with_collision_hooks::<ArrowHooks>(),
-                #[cfg(debug_assertions)]
-                PhysicsDebugPlugin::default(),
-            ))
-            .add_systems(OnEnter(AppState::Game), (setup, cursor_grab))
-            .add_systems(OnExit(AppState::Game), cursor_ungrab)
-            .add_systems(
-                Update,
-                (toggle_cursor_grab, move_cam).run_if(in_state(AppState::Game)),
-            )
-            .add_systems(
-                FixedUpdate,
-                update_client_status.run_if(resource_changed::<ControlServer>),
-            );
+            ));
+        if !self.headless {
+            app.add_plugins(
+                    #[cfg(debug_assertions)]
+                    PhysicsDebugPlugin::default(),
+                )
+                .add_systems(OnEnter(AppState::Game), (setup, cursor_grab))
+                .add_systems(OnExit(AppState::Game), cursor_ungrab)
+                .add_systems(
+                    Update,
+                    (toggle_cursor_grab, move_cam).run_if(in_state(AppState::Game)),
+                )
+                .add_systems(
+                    FixedUpdate,
+                    update_client_status.run_if(resource_changed::<ControlServer>),
+                );
+        } else {
+            app.add_systems(Startup, setup);
+        }
     }
 }
 

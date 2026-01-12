@@ -205,10 +205,10 @@ class AgentDuelsClient:
     def dig_block(self):
         self.send_message("DigBlock", None)
 
-    def start(self, verbosity=0):
+    def start(self, port=8082, verbosity=0):
         self.socket = socket(AF_INET)
-        self.socket.connect(("127.0.0.1", 8082))
-        if verbosity > 0: print("[*] Connected to the server!")
+        self.socket.connect(("127.0.0.1", port))
+        if verbosity > 0: print(f"[*] Connected to the server at port {port}!")
         while True:
             response = self.socket.recv(1024)
             if response == b"":

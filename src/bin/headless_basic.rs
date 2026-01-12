@@ -9,10 +9,8 @@ fn main() {
     loop {
         let mut buf = [0_u8; 1024];
         connection.socket.read(&mut buf).unwrap();
-        let packets = connection.codec.read(&buf).unwrap();
-        let Some(Packet::PlayerActions(actions)) = packets.get(0) else {
-            println!("Expected PlayerActions packet");
-            break;
+        let Ok(Some(Packet::PlayerActions(actions))) = connection.codec.read(&buf) else {
+            continue;
         };
         println!("{:?}", actions.prev_actions);
 

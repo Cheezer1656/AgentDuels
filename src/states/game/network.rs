@@ -83,30 +83,49 @@ pub enum ControlMsgC2S {
     EndTick,
 }
 
-#[derive(Message)]
-pub struct PacketEvent(Packet);
+pub struct NetworkPlugin {
+    headless: bool,
+}
 
-pub struct NetworkPlugin;
+impl NetworkPlugin {
+    pub fn new(headless: bool) -> Self {
+        NetworkPlugin { headless }
+    }
+}
 
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
+        let systems = (
+            run_game_update,
+            process_opponent_actions,
+            send_control_start.after(gen_seed).after(advance_rng),
+            gen_seed,
+            advance_rng,
+        );
+
         app.init_resource::<NetworkState>()
-            .add_message::<PacketEvent>()
-            .insert_resource(IncomingBuffer(Vec::new()))
-            .init_resource::<ControlMsgQueue>()
-            .add_systems(
+            .init_resource::<ControlMsgQueue>();
+
+        if !self.headless {
+            app.add_systems(
                 Update,
-                (
-                    run_game_update,
-                    receive_packets,
-                    process_opponent_actions,
-                    send_control_start.after(gen_seed).after(advance_rng),
-                    gen_seed,
-                    advance_rng,
-                )
-                    .run_if(in_state(crate::AppState::Game)),
+                systems.run_if(in_state(crate::AppState::Game)),
             );
+        } else {
+            app.add_systems(
+                Update,
+                systems,
+            );
+        }
     }
+}
+
+fn hash_actions(actions: &PlayerActions, nonce: u128) -> [u8; 32] {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&nonce.to_le_bytes());
+    hasher.update(actions.as_bytes().as_slice());
+    let hash = hasher.finalize().into();
+    hash
 }
 
 // TODO - Don't block the main thread while waiting for input
@@ -161,15 +180,11 @@ fn run_game_update(world: &mut World) {
 
     world.run_schedule(GameUpdate);
     world.run_schedule(PostGameUpdate);
-    let mut connection = world.resource_mut::<GameConnection>();
 
     let nonce: u128 = rand::random();
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(&nonce.to_le_bytes());
-    hasher.update(new_actions.as_bytes().as_slice());
-    let action_hash: [u8; 32] = hasher.finalize().into();
+    let action_hash: [u8; 32] = hash_actions(&new_actions, nonce);
 
-    connection
+    world.resource_mut::<GameConnection>()
         .send_packet(Packet::PlayerActions(Box::new(PlayerActionsPacket {
             prev_actions,
             nonce: prev_nonce,
@@ -183,59 +198,49 @@ fn run_game_update(world: &mut World) {
     net_state.phase = NetworkPhase::AwaitingData;
 }
 
-#[derive(Resource)]
-struct IncomingBuffer(Vec<u8>);
-
-fn receive_packets(
-    mut buf: ResMut<IncomingBuffer>,
-    mut connection: ResMut<GameConnection>,
-    mut packet_ev: MessageWriter<PacketEvent>,
-) {
-    let mut temp = [0u8; 1024];
-    if let Ok(bytes_read) = connection.socket.read(&mut temp) {
-        buf.0.extend_from_slice(&temp[..bytes_read]);
-    }
-
-    if let Ok(packets) = connection.codec.read(&buf.0) {
-        for packet in packets {
-            packet_ev.write(PacketEvent(packet));
-        }
-        buf.0.clear();
-    }
-}
-
 fn process_opponent_actions(
-    mut packet_ev: MessageReader<PacketEvent>,
     mut net_state: ResMut<NetworkState>,
+    mut connection: ResMut<GameConnection>,
     mut player_query: Query<(&PlayerID, &mut PlayerActionsTracker)>,
 ) {
     if net_state.phase != NetworkPhase::AwaitingData {
         return;
     }
-    for PacketEvent(packet) in packet_ev.read() {
-        if let Packet::PlayerActions(actions_packet) = packet {
-            if net_state.tick > 0 {
-                // Skip the first tick since we have no previous data
-                let mut hasher = blake3::Hasher::new();
-                hasher.update(&actions_packet.nonce.to_le_bytes());
-                hasher.update(&actions_packet.prev_actions.as_bytes());
-                let expected_hash: [u8; 32] = hasher.finalize().into();
-                if expected_hash != net_state.prev_hash {
-                    panic!("Opponent's previous actions hash does not match expected hash");
-                }
-            }
 
-            let (_, mut opponent_actions) = player_query
-                .iter_mut()
-                .filter(|(player_id, _)| player_id.0 == 1)
-                .next()
-                .unwrap();
-            opponent_actions.0 = actions_packet.prev_actions;
-
-            net_state.prev_hash = actions_packet.action_hash;
-            net_state.tick += 1;
-            net_state.phase = NetworkPhase::StartingTick;
+    let mut buf = [0; 128];
+    let mut len = 0;
+    match connection.socket.read(buf.as_mut_slice()) {
+        Ok(0) => {
+            todo!("Opponent disconnect");
         }
+        Ok(n) => {
+            len = n;
+        }
+        Err(e) => if e.kind() != std::io::ErrorKind::WouldBlock {
+            println!("Error reading from socket: {}", e);
+            return;
+        }
+    }
+
+    if let Ok(packet) = connection.codec.read(&buf[..len]) && let Some(packet) = packet && let Packet::PlayerActions(actions_packet) = packet {
+        if net_state.tick > 0 { // Skip the first tick since we have no previous data
+            let expected_hash: [u8; 32] = hash_actions(
+                &actions_packet.prev_actions,
+                actions_packet.nonce,
+            );
+            assert_eq!(expected_hash, net_state.prev_hash, "Opponent's previous actions hash does not match expected hash! (Action: {:?}, Bits: {:b}, Nonce: {})", actions_packet.prev_actions, actions_packet.prev_actions.bits, actions_packet.nonce);
+        }
+
+        let (_, mut opponent_actions) = player_query
+            .iter_mut()
+            .filter(|(player_id, _)| player_id.0 == 1)
+            .next()
+            .unwrap();
+        opponent_actions.0 = actions_packet.prev_actions;
+
+        net_state.prev_hash = actions_packet.action_hash;
+        net_state.tick += 1;
+        net_state.phase = NetworkPhase::StartingTick;
     }
 }
 

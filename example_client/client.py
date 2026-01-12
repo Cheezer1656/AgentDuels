@@ -1,5 +1,6 @@
-from time import sleep
 import traceback
+from sys import argv
+from time import sleep
 
 from agentduels import *
 
@@ -48,7 +49,7 @@ while True:
     client.events.on_inventory_change.append(on_inventory_change)
 
     try:
-        client.start(verbosity=1)
+        client.start(port=int(argv[1]), verbosity=1)
     except ConnectionRefusedError:
         pass
     except Exception:
