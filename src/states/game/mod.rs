@@ -90,20 +90,18 @@ impl Plugin for GamePlugin {
                 PhysicsPlugins::new(PostGameUpdate).with_collision_hooks::<ArrowHooks>(),
             ));
         if !self.headless {
-            app.add_plugins(
-                #[cfg(debug_assertions)]
-                PhysicsDebugPlugin::default(),
-            )
-            .add_systems(OnEnter(AppState::Game), (setup, cursor_grab))
-            .add_systems(OnExit(AppState::Game), cursor_ungrab)
-            .add_systems(
-                Update,
-                (toggle_cursor_grab, move_cam).run_if(in_state(AppState::Game)),
-            )
-            .add_systems(
-                FixedUpdate,
-                update_client_status.run_if(resource_changed::<ControlServer>),
-            );
+            #[cfg(debug_assertions)]
+            app.add_plugins(PhysicsDebugPlugin::default());
+            app.add_systems(OnEnter(AppState::Game), (setup, cursor_grab))
+                .add_systems(OnExit(AppState::Game), cursor_ungrab)
+                .add_systems(
+                    Update,
+                    (toggle_cursor_grab, move_cam).run_if(in_state(AppState::Game)),
+                )
+                .add_systems(
+                    FixedUpdate,
+                    update_client_status.run_if(resource_changed::<ControlServer>),
+                );
         } else {
             app.add_systems(Startup, setup);
         }
