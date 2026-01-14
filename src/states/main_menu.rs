@@ -1,14 +1,48 @@
+use crate::{AppState, AutoDespawn, ControlServer};
 use bevy::prelude::*;
 
-use crate::{AppState, AutoDespawn, ControlServer};
-
-#[derive(Component, Default)]
+#[derive(Component)]
 struct PlayButton {
     enabled: bool,
 }
 
 #[derive(Component)]
+struct QuitButton;
+
+#[derive(Bundle)]
+pub struct ButtonBundle {
+    button: Button,
+    node: Node,
+    border_color: BorderColor,
+    border_radius: BorderRadius,
+    background_color: BackgroundColor,
+}
+
+impl ButtonBundle {
+    pub fn new(margin: UiRect) -> Self {
+        ButtonBundle {
+            button: Button::default(),
+            node: Node {
+                width: Val::Px(400.0),
+                height: Val::Px(80.0),
+                border: UiRect::all(Val::Px(2.5)),
+                margin,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            border_color: BorderColor::all(Color::BLACK),
+            border_radius: BorderRadius::all(Val::Px(30.0)),
+            background_color: BackgroundColor(Color::Srgba(Srgba::rgb_u8(180, 0, 0))),
+        }
+    }
+}
+
+#[derive(Component)]
 pub struct ConnectionText;
+
+#[derive(Component)]
+pub struct ConnectionIcon;
 
 pub struct MainMenuPlugin;
 
@@ -18,8 +52,9 @@ impl Plugin for MainMenuPlugin {
             .add_systems(
                 Update,
                 (
-                    button_press,
-                    (update_button, update_connection_text)
+                    play_button_press,
+                    quit_button_press,
+                    (update_button, update_connection_display)
                         .run_if(resource_changed::<ControlServer>),
                 )
                     .run_if(in_state(AppState::MainMenu)),
@@ -27,15 +62,32 @@ impl Plugin for MainMenuPlugin {
     }
 }
 
-fn setup(mut commands: Commands, server: Option<Res<ControlServer>>) {
+fn setup(
+    mut commands: Commands,
+    server: Option<Res<ControlServer>>,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
     commands.spawn((Camera2d::default(), AutoDespawn(AppState::MainMenu)));
 
-    let (text, color) = if let Some(server) = server {
-        if server.client.is_some() {
-            ("Client connected", Srgba::GREEN)
-        } else {
-            ("No client connected", Srgba::RED)
-        }
+    commands.spawn((
+        AutoDespawn(AppState::MainMenu),
+        Mesh2d(meshes.add(Rectangle::from_size(Vec2::new(2050.0, 1286.0)))),
+        MeshMaterial2d(materials.add(ColorMaterial {
+            texture: Some(asset_server.load("textures/background0.png")),
+            ..default()
+        })),
+    ));
+
+    let client_connected = if let Some(server) = &server {
+        server.client.is_some()
+    } else {
+        false
+    };
+
+    let (text, color) = if client_connected {
+        ("Client connected", Srgba::GREEN)
     } else {
         ("No client connected", Srgba::RED)
     };
@@ -45,45 +97,70 @@ fn setup(mut commands: Commands, server: Option<Res<ControlServer>>) {
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
             flex_direction: FlexDirection::Column,
+            margin: UiRect::left(Val::Px(50.0)),
             ..default()
         },
         children![
             (
                 Text::new("AgentDuels"),
-                TextFont::default().with_font_size(100.0),
-            ),
-            (
-                PlayButton::default(),
-                Button::default(),
-                Node {
-                    width: Val::Px(150.0),
-                    height: Val::Px(65.0),
-                    border: UiRect::all(Val::Px(5.0)),
-                    margin: UiRect::default()
-                        .with_top(Val::Px(20.0))
-                        .with_bottom(Val::Px(20.0)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
+                TextFont {
+                    font: asset_server.load("fonts/LeagueSpartan-Bold.ttf"),
+                    font_size: 100.0,
                     ..default()
                 },
-                BorderColor::all(Color::BLACK),
-                BorderRadius::MAX,
-                BackgroundColor(Color::Srgba(Srgba::GREEN)),
+                Node {
+                    margin: UiRect::top(Val::Px(50.0)),
+                    ..default()
+                }
+            ),
+            (
+                ButtonBundle::new(UiRect::default().with_top(Val::Px(50.0))),
+                PlayButton {
+                    enabled: client_connected,
+                },
                 children![Text::new("Join Game"),],
             ),
             (
-                ConnectionText,
-                Text::new(text),
-                TextColor(Color::Srgba(color)),
-            )
+                ButtonBundle::new(UiRect::default().with_top(Val::Px(10.0))),
+                QuitButton,
+                children![Text::new("Quit Game"),],
+            ),
         ],
+    ));
+
+    commands.spawn((
+        AutoDespawn(AppState::MainMenu),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            right: Val::Px(40.0),
+            ..default()
+        },
+        children![(
+            ConnectionText,
+            Text::new(text),
+            TextColor(Color::Srgba(color)),
+        ),],
+    ));
+
+    commands.spawn((
+        AutoDespawn(AppState::MainMenu),
+        ConnectionIcon,
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            right: Val::Px(10.0),
+            height: Val::Px(22.0),
+            width: Val::Px(22.0),
+            ..default()
+        },
+        BorderRadius::MAX,
+        BackgroundColor(Color::Srgba(color)),
     ));
 }
 
-fn button_press(
+fn play_button_press(
     mut next_state: ResMut<NextState<AppState>>,
     button_query: Query<(&PlayButton, &Interaction), Changed<Interaction>>,
 ) {
@@ -94,6 +171,17 @@ fn button_press(
     }
 }
 
+fn quit_button_press(
+    button_query: Query<&Interaction, (With<QuitButton>, Changed<Interaction>)>,
+    mut exit_writer: MessageWriter<AppExit>,
+) {
+    if let Ok(interaction) = button_query.single()
+        && *interaction == Interaction::Pressed
+    {
+        exit_writer.write(AppExit::Success);
+    }
+}
+
 fn update_button(
     mut butten_query: Query<(&mut PlayButton, &mut BackgroundColor)>,
     server: Res<ControlServer>,
@@ -101,25 +189,30 @@ fn update_button(
     if let Ok((mut play_button, mut bg_color)) = butten_query.single_mut() {
         if server.client.is_some() {
             play_button.enabled = true;
-            bg_color.0 = Color::Srgba(Srgba::GREEN);
+            bg_color.0 = Color::Srgba(Srgba::rgb_u8(180, 0, 0));
         } else {
             play_button.enabled = false;
-            bg_color.0 = Color::srgb_u8(50, 50, 50);
+            bg_color.0 = Color::srgb_u8(83, 83, 83);
         }
     }
 }
 
-fn update_connection_text(
+fn update_connection_display(
     server: Res<ControlServer>,
     mut text_query: Query<(&mut Text, &mut TextColor), With<ConnectionText>>,
+    mut icon_query: Query<&mut BackgroundColor, With<ConnectionIcon>>,
 ) {
-    if let Ok((mut text, mut color)) = text_query.single_mut() {
+    if let Ok((mut text, mut text_color)) = text_query.single_mut()
+        && let Ok(mut icon_color) = icon_query.single_mut()
+    {
         if server.client.is_some() {
             text.0 = "Client connected".to_string();
-            color.0 = Color::Srgba(Srgba::GREEN);
+            text_color.0 = Color::Srgba(Srgba::GREEN);
+            icon_color.0 = Color::Srgba(Srgba::GREEN);
         } else {
             text.0 = "No client connected".to_string();
-            color.0 = Color::Srgba(Srgba::RED);
+            text_color.0 = Color::Srgba(Srgba::RED);
+            icon_color.0 = Color::Srgba(Srgba::RED);
         }
     }
 }
