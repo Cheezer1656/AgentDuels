@@ -15,7 +15,7 @@ use fastrand::Rng;
 use serde::{Deserialize, Serialize};
 
 #[derive(Resource, Default, Debug)]
-struct NetworkState {
+pub struct NetworkState {
     tick: u64,
     phase: NetworkPhase,
     prev_actions: PlayerActions, // Our actions from the last tick
@@ -87,6 +87,7 @@ pub enum ControlMsgC2S {
 pub struct OpponentDisconnected;
 
 pub struct NetworkPlugin {
+    /// In headless mode, you are responsible for resetting the network state between games.
     headless: bool,
 }
 
@@ -110,12 +111,17 @@ impl Plugin for NetworkPlugin {
             .init_resource::<ControlMsgQueue>();
 
         if !self.headless {
-            app.add_systems(Update, (systems.run_if(in_state(AppState::Game)),))
+            app.add_systems(Update, systems.run_if(in_state(AppState::Game)))
+                .add_systems(OnExit(AppState::Game), reset_state)
                 .add_observer(handle_opponent_disconnect);
         } else {
             app.add_systems(Update, systems);
         }
     }
+}
+
+fn reset_state(mut net_state: ResMut<NetworkState>) {
+    *net_state = NetworkState::default();
 }
 
 fn hash_actions(actions: &PlayerActions, nonce: u128) -> [u8; 32] {
