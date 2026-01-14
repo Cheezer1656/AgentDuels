@@ -75,7 +75,7 @@ fn setup(
         AutoDespawn(AppState::MainMenu),
         Mesh2d(meshes.add(Rectangle::from_size(Vec2::new(2050.0, 1286.0)))),
         MeshMaterial2d(materials.add(ColorMaterial {
-            texture: Some(asset_server.load("textures/background0.png")),
+            texture: Some(asset_server.load("textures/background.png")),
             ..default()
         })),
     ));
