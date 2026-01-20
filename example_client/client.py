@@ -6,16 +6,15 @@ from agentduels import *
 
 while True:
     client = AgentDuelsClient()
+    stop_attack = False
 
     def on_tick(tick):
-        if tick == 1:
-            client.select_item(Item.BLOCK)
-            client.rotate(0.0, -0.6)
-            client.place_block()
-        elif tick == 2:
-            client.select_item(Item.SWORD)
+        # if tick == 1:
+        #     client.select_item(Item.BLOCK)
+        #     client.rotate(0.0, -0.6)
+        #     client.place_block()
 
-        if tick >= 2:
+        if tick >= 2 and not stop_attack:
             client.rotate(0.0, 0.0)
             client.move_forward()
             pos = client.state.players[0].pos.get()
@@ -26,8 +25,20 @@ while True:
                 client.jump()
             client.attack()
 
-    def on_health_change(player_id, new_health):
-        print(f"Player {player_id} health changed to {new_health}")
+        if stop_attack:
+            client.use_item()
+
+    def on_health_change(player_id, old_health, new_health):
+        print(f"Player {player_id}'s health changed: {old_health} -> {new_health}")
+        if player_id == client.state.player_id and new_health < old_health:
+            print("Ouch! Took damage, stopping attack.")
+            global stop_attack
+            stop_attack = True
+            client.select_item(Item.GOLDEN_APPLE)
+        elif player_id == client.state.player_id and new_health > old_health:
+            print("Health restored, resuming attack.")
+            stop_attack = False
+            client.select_item(Item.SWORD)
 
     def on_death(player_id):
         print(f"Player {player_id} has died.")

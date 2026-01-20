@@ -19,8 +19,8 @@ class EventManager:
     def tick(self, tick):
         EventManager.run_event(self.on_tick, (tick,))
 
-    def health_change(self, player_id, new_health):
-        EventManager.run_event(self.on_health_change, (player_id, new_health,))
+    def health_change(self, player_id, old_health, new_health):
+        EventManager.run_event(self.on_health_change, (player_id, old_health, new_health,))
 
     def death(self, player_id):
         EventManager.run_event(self.on_death, (player_id,))
@@ -145,6 +145,7 @@ class ChunkMap:
 
 class GameState:
     def __init__(self):
+        self.player_id = None
         self.players = {
             0: Player(),
             1: Player()
@@ -214,31 +215,35 @@ class AgentDuelsClient:
             if response == b"":
                 if verbosity > 0: print("[*] Server closed the connection.")
                 break
-            messages = json.loads(response.decode())
-            for msg in messages:
-                if verbosity > 1 and next(iter(msg)) != "TickStart":
-                    print("[*] Received:", msg)
-                elif verbosity > 2:
-                    print("[*] Received:", msg)
-                for key, value in msg.items():
-                    if key == "TickStart":
-                        self.state.players[1].actions = value["opponent_prev_actions"]
-                        self.state.players[1].pos = Position(*value["opponent_position"])
-                        self.state.players[0].pos = Position(*value["player_position"])
-                        self.events.tick(value["tick"])
-                        self.send_message("EndTick", None)
-                    elif key == "HealthUpdate":
-                        self.state.players[value["player_id"]].health = value["new_health"]
-                        self.events.health_change(value["player_id"], value["new_health"])
-                    elif key == "Death":
-                        self.events.death(value["player_id"])
-                    elif key == "Goal":
-                        self.state.scores[value["player_id"]] += 1
-                        self.events.goal(value["player_id"])
-                    elif key == "BlockUpdate":
-                        self.state.map.set_block(value[0][0], value[0][1], value[0][2], value[1])
-                        self.events.block_change(value[0], value[1])
-                    elif key == "InventoryUpdate":
-                        self.state.players[value["player_id"]].inventory.update(value["new_contents"])
-                        self.events.inventory_change(value["player_id"])
+            (player_id, msg) = json.loads(response.decode())
+            if self.state.player_id is None:
+                self.state.player_id = player_id
+                if verbosity > 0: print(f"[*] Assigned player ID: {self.state.player_id}")
+            for (player_id, player) in self.state.players.items():
+                player_info = msg["players"][player_id]
+                player.pos = Position(*player_info["position"])
+                player.head_rot = Rotation(player_info["yaw"], player_info["pitch"])
+                if player_info["health_update"] is not None:
+                    old_health = player.health
+                    player.health = player_info["health_update"]
+                    self.events.health_change(player_id, old_health, player.health)
+                if player_info["inventory_update"] is not None:
+                    player.inventory.update(player_info["inventory_update"])
+                    self.events.inventory_change(player_id)
+            for player_id in msg["deaths"]:
+                self.events.death(player_id)
+            if msg["goals"] is not None:
+                player_id = msg["goals"]
+                self.state.scores[player_id] += 1
+                self.events.goal(player_id)
+            for (block_pos, block_type) in msg["block_updates"]:
+                self.state.map.set_block(block_pos[0], block_pos[1], block_pos[2], block_type)
+                self.events.block_change(block_pos, block_type)
+            self.events.tick(msg["tick"])
+            self.send_message("EndTick", None)
+            # TODO - arrow update handling
+            if msg["game_results"] is not None:
+                if verbosity > 0:
+                    print(f"[*] Game over! Results: {msg['game_results']}")
+                break
         self.socket.close()

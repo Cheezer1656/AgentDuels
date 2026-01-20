@@ -14,7 +14,6 @@ pub struct ButtonBundle {
     button: Button,
     node: Node,
     border_color: BorderColor,
-    border_radius: BorderRadius,
     background_color: BackgroundColor,
 }
 
@@ -29,10 +28,10 @@ impl ButtonBundle {
                 margin,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
+                border_radius: BorderRadius::all(Val::Px(30.0)),
                 ..default()
             },
             border_color: BorderColor::all(Color::BLACK),
-            border_radius: BorderRadius::all(Val::Px(30.0)),
             background_color: BackgroundColor(Color::Srgba(Srgba::rgb_u8(180, 0, 0))),
         }
     }
@@ -153,9 +152,9 @@ fn setup(
             right: Val::Px(10.0),
             height: Val::Px(22.0),
             width: Val::Px(22.0),
+            border_radius: BorderRadius::MAX,
             ..default()
         },
-        BorderRadius::MAX,
         BackgroundColor(Color::Srgba(color)),
     ));
 }

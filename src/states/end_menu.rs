@@ -1,11 +1,8 @@
+use std::cmp::PartialEq;
 use crate::states::ButtonBundle;
-use crate::{AppState, AutoDespawn};
+use crate::{AppState, AutoDespawn, GameResults};
 use bevy::prelude::*;
-
-#[derive(Resource)]
-pub struct GameResults {
-    pub(crate) winner: Option<u16>,
-}
+use crate::client::GameConnection;
 
 #[derive(Component)]
 struct MainMenuButton;
@@ -24,7 +21,7 @@ impl Plugin for EndMenuPlugin {
     }
 }
 
-fn setup(mut commands: Commands, game_results: Res<GameResults>, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, game_results: Res<GameResults>, game_connection: Res<GameConnection>, asset_server: Res<AssetServer>) {
     commands.spawn((Camera2d::default(), AutoDespawn(AppState::EndMenu)));
 
     commands.spawn((
@@ -60,9 +57,14 @@ fn setup(mut commands: Commands, game_results: Res<GameResults>, asset_server: R
         children![
             (
                 Text::new(match game_results.winner {
-                    Some(0) => "You win!",
-                    Some(_) => "You lose!",
-                    None => "Opponent disconnected!",
+                    Some(player_id) => {
+                        if player_id == game_connection.player_id.0 {
+                            "You win!"
+                        } else {
+                            "You lose!"
+                        }
+                    },
+                    None => game_results.reason.as_str(),
                 }),
                 TextFont {
                     font: asset_server.load("fonts/LeagueSpartan-Bold.ttf"),

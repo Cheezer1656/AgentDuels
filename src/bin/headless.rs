@@ -1,7 +1,7 @@
 use agentduels::states::GamePlugin;
 use agentduels::states::network::OpponentDisconnected;
 use agentduels::{
-    ControlServer, SERVER_ADDR, client::GameConnection, handle_connection, handle_disconnects,
+    ControlServer, SERVER_URL, client::GameConnection, handle_connection, handle_disconnects,
 };
 use bevy::DefaultPlugins;
 use bevy::app::App;
@@ -12,12 +12,12 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener};
 
 const CONTROL_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8083);
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let listener = TcpListener::bind(CONTROL_ADDR).unwrap();
     listener.set_nonblocking(true).unwrap();
 
-    let connection = GameConnection::connect(SERVER_ADDR).unwrap();
-    connection.socket.set_nonblocking(true).unwrap();
+    let connection = GameConnection::connect(SERVER_URL).await.unwrap();
 
     App::new()
         .add_plugins(DefaultPlugins.set(RenderPlugin {

@@ -1,25 +1,11 @@
-use crate::states::game::gameloop::{ArrowHooks, GOAL_BOUNDS};
-use crate::states::game::player::{
-    PLAYER_ANIMATION_INDICES, PLAYER_HEIGHT, PLAYER_WIDTH, PlayerBody, PlayerBundle, PlayerHand,
-    SPAWN_POSITIONS, SPAWN_ROTATIONS,
-};
+use crate::player::{PLAYER_ANIMATION_INDICES, PlayerBody, PlayerBundle, PlayerHand, SPAWN_POSITIONS, SPAWN_ROTATIONS, Inventory};
+use crate::player::{PlayerHead, PlayerID};
+use crate::world::{WorldPlugin, init_map};
 use crate::{
     AppState, AutoDespawn, ControlServer,
-    states::game::{
-        gameloop::GameLoopPlugin,
-        network::NetworkPlugin,
-        player::{PlayerHead, PlayerID},
-        world::{Chunk, ChunkMap, WorldPlugin},
-    },
+    states::game::{gameloop::GameLoopPlugin, network::NetworkPlugin},
 };
-use avian3d::prelude::{GravityScale, LinearDamping, SweptCcd};
-use avian3d::{
-    PhysicsPlugins,
-    prelude::{
-        Collider, CollisionLayers, Friction, LockedAxes, PhysicsDebugPlugin, PhysicsLayer,
-        Restitution, RigidBody,
-    },
-};
+use avian3d::prelude::PhysicsLayer;
 use bevy::scene::SceneInstanceReady;
 use bevy::{
     ecs::schedule::ScheduleLabel,
@@ -28,34 +14,16 @@ use bevy::{
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
 use bevy_inspector_egui::bevy_egui;
+use crate::client::GameConnection;
 
 mod gameloop;
 pub mod network;
-mod player;
-mod world;
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Clone, Debug)]
 pub struct GameUpdate;
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Clone, Debug)]
 pub struct PostGameUpdate;
-
-#[derive(PhysicsLayer, Default)]
-pub enum CollisionLayer {
-    #[default]
-    Default,
-    Player,
-    Projectile,
-    World,
-}
-
-pub const ARROW_HEIGHT: f32 = 0.5;
-pub const ARROW_WIDTH: f32 = 0.5;
-
-#[derive(Component, Default)]
-pub struct Arrow {
-    ticks_in_ground: usize,
-}
 
 #[derive(Component)]
 struct RedScoreMarker;
@@ -84,14 +52,11 @@ impl Plugin for GamePlugin {
         app.add_schedule(Schedule::new(GameUpdate))
             .add_schedule(Schedule::new(PostGameUpdate))
             .add_plugins((
-                WorldPlugin,
+                WorldPlugin::new(self.headless),
                 NetworkPlugin::new(self.headless),
                 GameLoopPlugin,
-                PhysicsPlugins::new(PostGameUpdate).with_collision_hooks::<ArrowHooks>(),
             ));
         if !self.headless {
-            #[cfg(debug_assertions)]
-            app.add_plugins(PhysicsDebugPlugin::default());
             app.add_systems(OnEnter(AppState::Game), (setup, cursor_grab))
                 .add_systems(OnExit(AppState::Game), cursor_ungrab)
                 .add_systems(
@@ -113,6 +78,7 @@ fn setup(
     mut graphs: ResMut<Assets<AnimationGraph>>,
     assets: Res<AssetServer>,
     control_server: Res<ControlServer>,
+    game_connection: Res<GameConnection>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -194,67 +160,13 @@ fn setup(
         },
     ));
 
-    let mut chunkmap = ChunkMap::default();
-
-    for x in -2..=2 {
-        for y in -1..=1 {
-            for z in -1..=1 {
-                chunkmap.insert((x, y, z).into(), Chunk::default());
-            }
-        }
-    }
-
-    for x in -20..=20 {
-        for y in -8..=0 {
-            chunkmap
-                .set_block(
-                    (x, y, 0).into(),
-                    match x {
-                        -20..0 => world::BlockType::BlueBlock,
-                        0 => world::BlockType::WhiteBlock,
-                        1..=20 => world::BlockType::RedBlock,
-                        _ => unreachable!(),
-                    },
-                )
-                .unwrap();
-        }
-    }
-
-    for i in 0..2 {
-        for x in 21..=30 {
-            for y in -5..=0 {
-                'outer: for z in -5..=5 {
-                    for (x_range, y_range, z_range) in GOAL_BOUNDS.iter() {
-                        if x_range.contains(&x)
-                            && (*y_range.start()..=y_range.end() + 1).contains(&y)
-                            && z_range.contains(&z)
-                        {
-                            continue 'outer;
-                        }
-                    }
-                    chunkmap
-                        .set_block(
-                            (x * (i * 2 - 1), y, z).into(),
-                            match y {
-                                -5..=-3 => world::BlockType::Stone,
-                                -2..=-1 => world::BlockType::Dirt,
-                                0 => world::BlockType::Grass,
-                                _ => unreachable!(),
-                            },
-                        )
-                        .unwrap();
-                }
-            }
-        }
-    }
-
-    commands.spawn((chunkmap, AutoDespawn(AppState::Game)));
+    commands.spawn((init_map(), AutoDespawn(AppState::Game)));
 
     for i in 0..2_i32 {
         let mut body_transform = Transform::from_xyz(0.0, -0.9, 0.0);
         body_transform.rotation = Quat::from_rotation_y(SPAWN_ROTATIONS[i as usize]);
 
-        let gltf_path = format!("models/player{}.gltf#Scene0", i);
+        let gltf_path = format!("models/{}.gltf#Scene0", if i == game_connection.player_id.0 as i32 { "player" } else { "opponent" });
         let mut graph = AnimationGraph::new();
         for i in 0..5 {
             graph.add_clip(
@@ -274,18 +186,6 @@ fn setup(
                     transform: Transform::from_translation(SPAWN_POSITIONS[i as usize]),
                     ..default()
                 },
-                RigidBody::Dynamic,
-                Collider::cuboid(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_WIDTH),
-                CollisionLayers::new(
-                    CollisionLayer::Player,
-                    [CollisionLayer::World, CollisionLayer::Projectile],
-                ),
-                SweptCcd::default(),
-                LockedAxes::ROTATION_LOCKED,
-                Friction::new(0.0),
-                Restitution::new(0.0),
-                LinearDamping(2.0),
-                GravityScale(3.0),
                 Visibility::default(),
                 AutoDespawn(AppState::Game),
             ))
@@ -334,7 +234,9 @@ fn mark_entities_on_ready(
     mut commands: Commands,
     children: Query<&Children>,
     mut names: Query<(Entity, &mut Name)>,
+    mut player_query: Query<&mut Inventory>,
 ) {
+    let mut marked = false;
     for child in children.iter_descendants(scene_ready.entity) {
         let Ok((entity, name)) = names.get_mut(child) else {
             continue;
@@ -347,6 +249,12 @@ fn mark_entities_on_ready(
                 commands.entity(entity).insert(PlayerHand);
             }
             _ => {}
+        }
+        marked = true;
+    }
+    if marked {
+        for mut inventory in player_query.iter_mut() {
+            inventory.set_changed();
         }
     }
 }

@@ -1,23 +1,36 @@
-use std::io::Read;
+#![feature(mpmc_channel)]
 
-use agentduels::{SERVER_ADDR, client::GameConnection};
-use agentduels_protocol::Packet;
+use agentduels::player::PlayerActions;
+use agentduels::{SERVER_URL, TickMessage, client::GameConnection};
+use anyhow::bail;
+use workflow_websocket::client::Message;
 
-fn main() {
-    let mut connection = GameConnection::connect(SERVER_ADDR).unwrap();
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let connection = GameConnection::connect(SERVER_URL).await?;
 
     loop {
-        let mut buf = [0_u8; 1024];
-        connection.socket.read(&mut buf).unwrap();
-        let Ok(Some(Packet::PlayerActions(actions))) = connection.codec.read(&buf) else {
-            continue;
+        let msg = connection.receiver_rx.recv()?;
+        let Message::Binary(data) = msg else {
+            if msg == Message::Close {
+                println!("Connection closed by server");
+                return Ok(());
+            }
+            bail!("Received invalid message: {:?}", msg);
         };
-        println!("{:?}", actions.prev_actions);
+        let tick_msg: TickMessage = postcard::from_bytes(&data)?;
+        println!("Received tick {}", tick_msg.tick);
+
+        let mut actions = PlayerActions::default();
+        actions.set(PlayerActions::MOVE_FORWARD);
+        actions.set(PlayerActions::JUMP);
+        actions.set(PlayerActions::ATTACK);
 
         connection
-            .send_packet(Packet::PlayerActions(actions.clone()))
-            .unwrap();
-
-        std::thread::sleep(std::time::Duration::from_millis(50));
+            .socket
+            .send(Message::Binary(
+                postcard::to_allocvec(&actions).unwrap(),
+            ))
+            .await?;
     }
 }

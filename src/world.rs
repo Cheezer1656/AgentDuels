@@ -1,4 +1,4 @@
-use crate::{AppState, AutoDespawn, states::CollisionLayer};
+use crate::{AppState, AutoDespawn, CollisionLayer};
 use avian3d::{
     parry::{
         math::Point,
@@ -13,13 +13,21 @@ use bevy::{
     platform::collections::HashMap,
     prelude::*,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::ops::RangeInclusive;
 
 const CHUNK_WIDTH: usize = 16;
 const CHUNK_HEIGHT: usize = 16;
 const CHUNK_DEPTH: usize = 16;
 
-#[derive(Serialize, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+// First goal is for player 0, second for player 1
+pub const GOAL_BOUNDS: [(
+    RangeInclusive<i32>,
+    RangeInclusive<i32>,
+    RangeInclusive<i32>,
+); 2] = [(-27..=-25, -3..=-1, -1..=1), (25..=27, -3..=-1, -1..=1)];
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BlockType {
     #[default]
     Air,
@@ -279,12 +287,22 @@ impl ChunkMap {
     }
 }
 
-pub struct WorldPlugin;
+pub struct WorldPlugin {
+    headless: bool,
+}
+
+impl WorldPlugin {
+    pub fn new(headless: bool) -> Self {
+        WorldPlugin { headless }
+    }
+}
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup)
-            .add_systems(Update, regen_dirty_chunks);
+        if !self.headless {
+            app.add_systems(Startup, setup);
+        }
+        app.add_systems(Update, regen_dirty_chunks);
     }
 }
 
@@ -310,14 +328,18 @@ fn setup(
 
 fn regen_dirty_chunks(
     mut commands: Commands,
-    data: Res<WorldPluginData>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    data: Option<Res<WorldPluginData>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
     mut chunk_map: Single<&mut ChunkMap, Changed<ChunkMap>>,
 ) {
     let mut dirty = false;
     for (pos, chunk) in chunk_map.chunks.iter_mut() {
         if chunk.dirty {
             dirty = true;
+            if data.is_none() || meshes.is_none() {
+                chunk.dirty = false;
+                continue;
+            }
             if let Some(mesh_entity) = chunk.mesh {
                 commands.entity(mesh_entity).despawn();
             }
@@ -328,8 +350,8 @@ fn regen_dirty_chunks(
             } else {
                 let mesh_entity = commands
                     .spawn((
-                        Mesh3d(meshes.add(mesh)),
-                        MeshMaterial3d(data.atlas_material.clone()),
+                        Mesh3d(meshes.as_mut().unwrap().add(mesh)),
+                        MeshMaterial3d(data.as_ref().unwrap().atlas_material.clone()),
                         Transform::default()
                             .with_translation(pos.as_vec3() * 16.0 + Vec3::splat(0.5)),
                         AutoDespawn(AppState::Game),
@@ -382,4 +404,62 @@ fn regen_dirty_chunks(
             .id();
         chunk_map.collider = Some(collider_entity);
     }
+}
+
+pub fn init_map() -> ChunkMap {
+    let mut chunkmap = ChunkMap::default();
+
+    for x in -2..=2 {
+        for y in -1..=1 {
+            for z in -1..=1 {
+                chunkmap.insert((x, y, z).into(), Chunk::default());
+            }
+        }
+    }
+
+    for x in -20..=20 {
+        for y in -8..=0 {
+            chunkmap
+                .set_block(
+                    (x, y, 0).into(),
+                    match x {
+                        -20..0 => BlockType::BlueBlock,
+                        0 => BlockType::WhiteBlock,
+                        1..=20 => BlockType::RedBlock,
+                        _ => unreachable!(),
+                    },
+                )
+                .unwrap();
+        }
+    }
+
+    for i in 0..2 {
+        for x in 21..=30 {
+            for y in -5..=0 {
+                'outer: for z in -5..=5 {
+                    for (x_range, y_range, z_range) in GOAL_BOUNDS.iter() {
+                        if x_range.contains(&x)
+                            && (*y_range.start()..=y_range.end() + 1).contains(&y)
+                            && z_range.contains(&z)
+                        {
+                            continue 'outer;
+                        }
+                    }
+                    chunkmap
+                        .set_block(
+                            (x * (i * 2 - 1), y, z).into(),
+                            match y {
+                                -5..=-3 => BlockType::Stone,
+                                -2..=-1 => BlockType::Dirt,
+                                0 => BlockType::Grass,
+                                _ => unreachable!(),
+                            },
+                        )
+                        .unwrap();
+                }
+            }
+        }
+    }
+
+    chunkmap
 }

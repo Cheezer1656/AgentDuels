@@ -1,9 +1,10 @@
+use crate::{AppState, AutoDespawn, SERVER_URL, client::GameConnection};
+use bevy::tasks::ComputeTaskPool;
 use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task, block_on, futures_lite::future},
 };
-
-use crate::{AppState, AutoDespawn, SERVER_ADDR, client::GameConnection};
+use tokio::runtime::{Builder, Runtime};
 
 pub struct JoiningPlugin;
 
@@ -41,7 +42,7 @@ fn start_connection(mut commands: Commands, task_query: Query<&ConnectingTask>) 
     }
     println!("Starting connection to game server...");
     let task_pool = AsyncComputeTaskPool::get();
-    let task = task_pool.spawn(async move { GameConnection::connect(SERVER_ADDR) });
+    let task = task_pool.spawn(async { GameConnection::connect(SERVER_URL).await });
     commands.spawn(ConnectingTask(task));
 }
 
@@ -55,7 +56,6 @@ fn poll_connection(
             match result {
                 Ok(connection) => {
                     println!("Connected to game server");
-                    connection.socket.set_nonblocking(true).unwrap(); // TODO - Replace with proper decoupling later
                     commands.insert_resource(connection);
                     next_state.set(AppState::Game);
                 }
