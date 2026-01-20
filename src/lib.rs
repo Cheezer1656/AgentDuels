@@ -36,7 +36,7 @@ pub struct PlayerInfo {
 
 pub type ArrowID = u32;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ArrowEvent {
     Updated {
         id: ArrowID,
@@ -158,7 +158,7 @@ pub const ARROW_WIDTH: f32 = 0.5;
 
 #[derive(Component, Default)]
 pub struct Arrow {
-    pub id: ArrowID,
+    pub id: u32,
     pub ticks_in_ground: usize,
 }
 

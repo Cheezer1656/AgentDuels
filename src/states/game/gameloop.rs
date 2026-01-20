@@ -5,8 +5,9 @@ use crate::player::{
 use crate::player::{PlayerAnimation, PlayerID};
 use crate::states::game::{BlueScoreMarker, RedScoreMarker, TPSMarker};
 use crate::states::network::TickEvent;
-use bevy::prelude::*;
 use crate::world::ChunkMap;
+use crate::{AppState, Arrow, ArrowEvent, AutoDespawn};
+use bevy::prelude::*;
 
 pub struct GameLoopPlugin;
 
@@ -21,6 +22,7 @@ impl Plugin for GameLoopPlugin {
                 update_animations,
                 update_inventories,
                 update_item_model.after(update_inventories),
+                update_arrows,
                 update_chunkmap,
                 update_scores,
                 update_scoreboard.after(update_scores),
@@ -250,6 +252,58 @@ fn update_item_model(
                 );
                 let new_model_entity = commands.spawn(SceneRoot(assets.load(gltf_path))).id();
                 commands.entity(entity).add_child(new_model_entity);
+            }
+        }
+    }
+}
+
+fn update_arrows(
+    mut tick_events: MessageReader<TickEvent>,
+    mut arrow_query: Query<(Entity, &Arrow, &mut Transform)>,
+    assets: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    for tick_event in tick_events.read(){
+        for arrow_event in tick_event.arrow_events.iter() {
+            match arrow_event {
+                ArrowEvent::Updated { id, position, rotation } => {
+                    let rotation = rotation * Quat::from_rotation_z(std::f32::consts::FRAC_PI_2); // Adjust for model orientation
+                    let mut updated = false;
+                    for (_, arrow, mut transform) in arrow_query.iter_mut() {
+                        if arrow.id != *id {
+                            continue;
+                        }
+                        transform.translation = *position;
+                        transform.rotation = rotation;
+                        updated = true;
+                    }
+                    if !updated {
+                        // Spawn new arrow
+                        commands.spawn((
+                            AutoDespawn(AppState::Game),
+                            Arrow {
+                                id: *id,
+                                ..default()
+                            },
+                            Transform {
+                                translation: *position,
+                                rotation,
+                                ..default()
+                            },
+                            SceneRoot(assets.load("models/items/Arrow.gltf#Scene0")),
+                        ));
+                    }
+                }
+                ArrowEvent::Despawned(id) => {
+                    for (entity, arrow, _) in arrow_query.iter_mut() {
+                        if arrow.id != *id {
+                            continue;
+                        }
+                        if let Ok(mut entity_commands) = commands.get_entity(entity) {
+                            entity_commands.despawn();
+                        }
+                    }
+                }
             }
         }
     }

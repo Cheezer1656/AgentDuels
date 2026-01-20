@@ -43,6 +43,9 @@ class Position:
     def get(self):
         return [self.x, self.y, self.z]
 
+    def distance_to(self, other_pos: 'Position'):
+        return ((self.x - other_pos.x) ** 2 + (self.y - other_pos.y) ** 2 + (self.z - other_pos.z) ** 2) ** 0.5
+
 class Rotation:
     def __init__(self, yaw=0.0, pitch=0.0):
         self.yaw = yaw
@@ -211,11 +214,15 @@ class AgentDuelsClient:
         self.socket.connect(("127.0.0.1", port))
         if verbosity > 0: print(f"[*] Connected to the server at port {port}!")
         while True:
-            response = self.socket.recv(1024)
+            response = self.socket.recv(2048)
             if response == b"":
                 if verbosity > 0: print("[*] Server closed the connection.")
                 break
-            (player_id, msg) = json.loads(response.decode())
+            try:
+                (player_id, msg) = json.loads(response.decode())
+            except json.JSONDecodeError:
+                if verbosity > 0: print("[!] Failed to decode message from server. Message was:", response)
+                break
             if self.state.player_id is None:
                 self.state.player_id = player_id
                 if verbosity > 0: print(f"[*] Assigned player ID: {self.state.player_id}")

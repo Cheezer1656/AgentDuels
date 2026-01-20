@@ -62,7 +62,7 @@ impl Item {
         match self {
             Item::Sword => 0,
             Item::Pickaxe => 0,
-            Item::Bow => 25,
+            Item::Bow => 40,
             Item::Arrow => 0,
             Item::Block => 0,
             Item::GoldenApple => 20,

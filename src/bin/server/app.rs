@@ -1,27 +1,23 @@
 use crate::read_until_binary;
 use agentduels::player::{
     BreakingStatus, BreakingStatusTracker, HeadRotation, Health, HurtCooldown, Inventory, Item,
-    ItemUsageStatus, ItemUsageStatusTracker, PLAYER_EYE_HEIGHT, PLAYER_HEIGHT,
-    PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH, PlayerActions,
-    PlayerActionsTracker, PlayerAnimation, PlayerBundle, PlayerID, SPAWN_POSITIONS,
-    SPAWN_ROTATIONS, Score,
+    ItemUsageStatus, ItemUsageStatusTracker, PlayerActions, PlayerActionsTracker,
+    PlayerAnimation, PlayerBundle, PlayerID, Score, PLAYER_EYE_HEIGHT,
+    PLAYER_HEIGHT, PLAYER_INTERACT_RANGE, PLAYER_JUMP_SPEED, PLAYER_SPEED, PLAYER_WIDTH,
+    SPAWN_POSITIONS, SPAWN_ROTATIONS,
 };
-use agentduels::world::{BlockType, ChunkMap, WorldPlugin, init_map};
-use agentduels::{
-    ARROW_HEIGHT, ARROW_WIDTH, AppState, Arrow, ArrowEvent, AutoDespawn, CollisionLayer,
-    GameResults, PlayerInfo, TickMessage,
-};
+use agentduels::world::{init_map, BlockType, ChunkMap, WorldPlugin};
+use agentduels::{AppState, Arrow, ArrowEvent, AutoDespawn, CollisionLayer, GameResults, PlayerInfo, TickMessage, ARROW_HEIGHT, ARROW_WIDTH};
 use anyhow::bail;
-use avian3d::PhysicsPlugins;
 use avian3d::prelude::{
     ActiveCollisionHooks, Collider, CollisionEventsEnabled, CollisionHooks, CollisionLayers,
     CollisionStart, Collisions, Friction, GravityScale, LinearDamping, LinearVelocity, LockedAxes,
     Restitution, RigidBody, SpatialQuery, SpatialQueryFilter, SweptCcd,
 };
+use avian3d::PhysicsPlugins;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use rand::prelude::IteratorRandom;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::net::TcpStream;
 use std::ops::RangeInclusive;
 use tungstenite::WebSocket;
@@ -48,9 +44,6 @@ struct Goals(Option<PlayerID>);
 #[derive(Resource, Default)]
 struct BlockUpdates(Vec<(IVec3, BlockType)>);
 
-#[derive(Resource, Default)]
-struct InventoryChanges(HashMap<PlayerID, Inventory>);
-
 #[derive(Resource, Default, Clone)]
 struct ArrowEvents(Vec<ArrowEvent>);
 
@@ -66,7 +59,6 @@ pub fn start_app(mut websockets: [WebSocket<TcpStream>; 2]) -> anyhow::Result<()
         .init_resource::<Deaths>()
         .init_resource::<Goals>()
         .init_resource::<BlockUpdates>()
-        .init_resource::<InventoryChanges>()
         .init_resource::<ArrowEvents>()
         .add_observer(update_score)
         .add_observer(reset_players_after_goal)
@@ -95,6 +87,7 @@ pub fn start_app(mut websockets: [WebSocket<TcpStream>; 2]) -> anyhow::Result<()
                 eat_golden_apple.after(update_item_usage_status),
                 shoot_arrow.after(update_item_usage_status),
                 send_arrow_updates.after(shoot_arrow),
+                send_arrow_despawns.after(send_arrow_updates),
                 manage_arrows,
                 tick_hurt_cooldown,
                 check_goal.after(move_players),
@@ -103,7 +96,7 @@ pub fn start_app(mut websockets: [WebSocket<TcpStream>; 2]) -> anyhow::Result<()
                 kill_oob_players.after(move_players),
             ),
         )
-        .add_systems(PostUpdate, (update_info, send_inventory_updates));
+        .add_systems(PostUpdate, update_info);
 
     let mut tick = 0;
     loop {
@@ -112,7 +105,7 @@ pub fn start_app(mut websockets: [WebSocket<TcpStream>; 2]) -> anyhow::Result<()
         world.resource_mut::<Deaths>().0.clear();
         world.resource_mut::<Goals>().0 = None;
         world.resource_mut::<BlockUpdates>().0.clear();
-        world.resource_mut::<InventoryChanges>().0.clear();
+        world.resource_mut::<ArrowEvents>().0.clear();
 
         // Tick the app
         app.update();
@@ -611,7 +604,7 @@ fn shoot_arrow(
             continue;
         }
 
-        let dir = rotation.0 * Vec3::Z.normalize();
+        let dir = rotation.0 * Vec3::X.normalize();
         let origin = transform.translation
                     + Vec3::new(0.0, -PLAYER_HEIGHT / 2.0 + PLAYER_EYE_HEIGHT, 0.0) // -half player height + eye height
                     + dir;
@@ -635,8 +628,7 @@ fn shoot_arrow(
                 Restitution::new(0.0),
                 GravityScale(5.0),
             ))
-            .observe(handle_arrow_collision)
-            .observe(send_arrow_despawns);
+            .observe(handle_arrow_collision);
     }
 }
 
@@ -680,14 +672,17 @@ fn handle_arrow_collision(
     commands.entity(event.collider1).despawn();
     health.0 -= 9.0;
     hurt_cooldown.start();
-    player_vel.0 += arrow_vel.0.normalize() * 20.0;
+    player_vel.0 += arrow_vel.0.normalize() * 10.0;
 }
 
 fn manage_arrows(
-    mut arrow_query: Query<(Entity, &mut Arrow, &LinearVelocity)>,
+    mut arrow_query: Query<(Entity, &mut Arrow, &Transform, &LinearVelocity)>,
     mut commands: Commands,
 ) {
-    for (entity, mut arrow, vel) in arrow_query.iter_mut() {
+    for (entity, mut arrow, transform, vel) in arrow_query.iter_mut() {
+        if transform.translation.y < -10.0 {
+            commands.entity(entity).despawn();
+        }
         if vel.length() < 0.1 {
             arrow.ticks_in_ground += 1;
             if arrow.ticks_in_ground > 100 {
@@ -849,11 +844,11 @@ fn send_goal_events(
 
 fn send_arrow_updates(
     mut arrow_events: ResMut<ArrowEvents>,
-    arrow_query: Query<(&Arrow, &Transform), Changed<Arrow>>,
+    arrow_query: Query<(Entity, &Transform), (Changed<Transform>, With<Arrow>)>,
 ) {
-    for (arrow, transform) in arrow_query.iter() {
+    for (entity, transform) in arrow_query.iter() {
         arrow_events.0.push(ArrowEvent::Updated {
-            id: arrow.id,
+            id: entity.index_u32(),
             position: transform.translation,
             rotation: transform.rotation,
         });
@@ -861,21 +856,10 @@ fn send_arrow_updates(
 }
 
 fn send_arrow_despawns(
-    remove_event: On<Remove>,
-    arrow_query: Query<&Arrow>,
+    mut removals: RemovedComponents<Arrow>,
     mut arrow_events: ResMut<ArrowEvents>,
 ) {
-    let Ok(arrow) = arrow_query.get(remove_event.entity) else {
-        return;
-    };
-    arrow_events.0.push(ArrowEvent::Despawned(arrow.id));
-}
-
-fn send_inventory_updates(
-    player_query: Query<(&PlayerID, &Inventory), Changed<Inventory>>,
-    mut inv_changes: ResMut<InventoryChanges>,
-) {
-    for (player_id, inv) in player_query.iter() {
-        inv_changes.0.insert(*player_id, inv.clone());
+    for entity in removals.read() {
+        arrow_events.0.push(ArrowEvent::Despawned(entity.index_u32()));
     }
 }
