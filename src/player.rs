@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::PlayerInfo;
 
 pub const PLAYER_HEIGHT: f32 = 1.8;
 pub const PLAYER_EYE_HEIGHT: f32 = 1.75;

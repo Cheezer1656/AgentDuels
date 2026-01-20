@@ -1,6 +1,6 @@
-use crate::player::{PlayerActions, PlayerID};
-use crate::{GAME_VERSION, SERVER_URL};
-use anyhow::{Context, bail};
+use crate::player::PlayerID;
+use crate::GAME_VERSION;
+use anyhow::{bail, Context};
 use bevy::ecs::resource::Resource;
 use bevy::utils::default;
 use std::thread;
@@ -105,7 +105,7 @@ impl GameConnection {
                     }
                 });
 
-                let (sender_tx, mut sender_rx) = std::sync::mpmc::channel();
+                let (sender_tx, sender_rx) = std::sync::mpmc::channel();
 
                 tx.send(GameConnection {
                     socket: socket.clone(),

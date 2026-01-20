@@ -1,8 +1,7 @@
-use std::cmp::PartialEq;
+use crate::client::GameConnection;
 use crate::states::ButtonBundle;
 use crate::{AppState, AutoDespawn, GameResults};
 use bevy::prelude::*;
-use crate::client::GameConnection;
 
 #[derive(Component)]
 struct MainMenuButton;

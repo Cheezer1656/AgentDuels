@@ -227,13 +227,13 @@ fn update_inventories(
 }
 
 fn update_item_model(
-    player_query: Query<(Entity, &PlayerID, &Inventory), Changed<Inventory>>,
+    player_query: Query<(Entity, &Inventory), Changed<Inventory>>,
     player_hand_query: Query<Entity, With<PlayerHand>>,
     children: Query<&Children>,
     assets: Res<AssetServer>,
     mut commands: Commands,
 ) {
-    for (entity, player_id, inv) in player_query.iter() {
+    for (entity, inv) in player_query.iter() {
         for child in children.iter_descendants(entity) {
             let Ok(entity) = player_hand_query.get(child) else {
                 continue;

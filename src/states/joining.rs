@@ -1,10 +1,8 @@
-use crate::{AppState, AutoDespawn, SERVER_URL, client::GameConnection};
-use bevy::tasks::ComputeTaskPool;
+use crate::{client::GameConnection, AppState, AutoDespawn, SERVER_URL};
 use bevy::{
     prelude::*,
-    tasks::{AsyncComputeTaskPool, Task, block_on, futures_lite::future},
+    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
-use tokio::runtime::{Builder, Runtime};
 
 pub struct JoiningPlugin;
 

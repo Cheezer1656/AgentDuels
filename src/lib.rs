@@ -1,13 +1,13 @@
 #![feature(mpmc_channel)]
 
-use crate::player::{HeadRotation, Inventory, PlayerAnimation, PlayerID};
+use crate::player::{Inventory, PlayerAnimation, PlayerID};
 use crate::states::network::ControlMsgC2S;
 use crate::world::BlockType;
 use avian3d::prelude::PhysicsLayer;
 use bevy::math::{IVec3, Vec3};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};

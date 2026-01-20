@@ -5,7 +5,6 @@ use crate::{
     AppState, AutoDespawn, ControlServer,
     states::game::{gameloop::GameLoopPlugin, network::NetworkPlugin},
 };
-use avian3d::prelude::PhysicsLayer;
 use bevy::scene::SceneInstanceReady;
 use bevy::{
     ecs::schedule::ScheduleLabel,
